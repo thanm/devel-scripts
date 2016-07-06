@@ -7,7 +7,7 @@ Android
 
 * analyze-android-loadmodule-layout.py
 
-Runs objdump to gather info on the symbols defined in one or more
+  Runs objdump to gather info on the symbols defined in one or more
 executables or shared libraries, then tries to detect possible problems
 with text/data layout (primarily padding).
 
