@@ -831,6 +831,7 @@ alias simple_prompt="export PS1='% '"
 alias show_image=eog
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
+alias gcctrunkconfig=" ../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap"
 
 # Android
 alias srcbuildsetup='. build/envsetup.sh'
