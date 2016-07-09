@@ -1,6 +1,11 @@
 
 startemacsclient() {
-  emacsclient --socket-name=server$DISPLAY -n $1 &
+  if [ ${OSFLAVOR} = "Darwin" ]; then
+    emacsclient -n --socket=/tmp/emacs${AUID}/server $1 &
+    disown $!
+  else
+    emacsclient --socket-name=server$DISPLAY -n $1 &
+  fi
 }
 
 startemacs() {
