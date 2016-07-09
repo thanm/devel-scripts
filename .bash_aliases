@@ -821,12 +821,73 @@ function select_ssd_go_repo() {
   setgccgoroot /ssd/gcc-trunk/cross
 }
 
+function run_ddir_sync() {
+  local PAIR=$1
+  local SRC=""
+  local DST=""
+
+  pushd /d
+  if [ $? != 0 ]; then
+    echo "unable to cd to /d"
+    return
+  fi
+  for P in $PAIR
+  do
+    SRC=`echo $P | cut -f1 -d:`
+    DST=`echo $P | cut -f2 -d:`
+    if [ ! -d $SRC ]; then
+      echo "unable to locate src $SRC, skipping"
+      continue
+    fi
+    if [ ! -d $DST ]; then
+      echo "unable to locate dst $DST, skipping"
+      continue
+    fi
+    echo rsync -av ${SRC}/ ${DST}/
+    rsync -av ${SRC}/ ${DST}/
+  done
+  popd
+}
+
+function run_photovideo_rsync() {
+  local PAIRS=$PHOTOVIDEO_PAIRS
+
+  pushd /d
+  if [ $? != 0 ]; then
+    echo "unable to cd to /d"
+    return
+  fi
+  for P in $PAIRS
+  do
+    run_ddir_sync $P
+  done
+  popd
+}
+
+function run_mp_rsync() {
+  local PAIRS=$MP_PAIRS
+
+  pushd /d
+  if [ $? != 0 ]; then
+    echo "unable to cd to /d"
+    return
+  fi
+  for P in $PAIRS
+  do
+    run_ddir_sync $P
+  done
+  popd
+}
+
+#......................................................................
+
 alias hh='history 25'
 alias e=startemacsclient
 alias ge=startemacs
 alias psaxu='ps -ejH'
 alias psaxuw='ps -efwwjH'
 alias svnstat='svn status | egrep -v "^\?"'
+alias svnaddexec='svn propset svn:executable on'
 alias more=less
 alias show_dir_tree='k4dirstat'
 alias debuglinedump='readelf --debug-dump=decodedline '
