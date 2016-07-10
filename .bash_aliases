@@ -951,6 +951,7 @@ alias gitmeld='git difftool -t meld -y'
 alias gitmeldc='git difftool --cached -t meld -y'
 alias gitmeldh='git difftool -t meld -y HEAD^ '
 alias gitlogdiff='git log -u -1 ' # supply sha as arg
+alias gitlocalcredentialcache='git config --local credential.helper "cache --timeout=14400"'
 alias gitmeldhash=run_git_meld_hash # supply sha as arg
 alias gitmeldbranch=run_git_meld_branch # supply file as arg
 alias gitshowbranch=run_git_show_local_branch_status
