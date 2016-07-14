@@ -899,6 +899,8 @@ alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
 alias gcctrunkconfig=" ../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap"
+alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
+
 
 # Android
 alias srcbuildsetup='. build/envsetup.sh'
