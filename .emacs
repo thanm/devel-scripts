@@ -74,9 +74,9 @@
 (define-key esc-map "%" 'skip-to-matching-paren)
 (define-key esc-map "\C-t" 'untabify)
 (global-set-key [?\C-]] 'my-recenter)
-(global-set-key [?\C-=] 'my-recenter)
-(global-set-key [?\C-tab] 'delete-trailing-whitespace)
-(global-set-key [?\M-=] 'gid)
+(global-set-key [C-=] 'my-recenter)
+(global-set-key [C-tab] 'delete-trailing-whitespace)
+(global-set-key [M-=] 'gid)
 ;;
 ;; Change esc-tab to indent relative, not tags completion (which
 ;; I hardly ever use).
