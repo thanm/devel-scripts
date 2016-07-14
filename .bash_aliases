@@ -834,6 +834,7 @@ alias anyprog=anyprogbash
 alias simple_prompt="export PS1='% '"
 # image viewer
 alias show_image=eog
+alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
 alias gcctrunkconfig=" ../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap"
