@@ -944,6 +944,10 @@ alias bfhelp=help_btrfs
 alias py34=python3.4
 alias android_python_lint=pep8
 
+# Graphical diff
+alias linux_graphical_diff=meld
+alias macos_graphical_diff=opendiff
+
 # Git
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
@@ -959,6 +963,9 @@ alias gitmeldhash=run_git_meld_hash # supply sha as arg
 alias gitmeldbranch=run_git_meld_branch # supply file as arg
 alias gitshowbranch=run_git_show_local_branch_status
 alias repolistgit='repo forall -c pwd'
+alias localgitconfig='git config --local user.name "Than McIntosh" ; git config --local user.email thanm@google.com'
+alias globalgitconfig='git config --global user.name "Than McIntosh" ; git config --global user.email thanm@google.com'
+
 
 # adb stuff
 alias adbstartservice='adb am startservice IntentName'
