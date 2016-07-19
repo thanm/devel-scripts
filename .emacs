@@ -121,8 +121,9 @@
 ;; (add-hook 'kill-emacs-query-functions 'simple-prompt-for-exit-function)
 ;;------------------------------------------------------------------------------
 ;;
-(toggle-show-trailing-whitespace-show-ws)
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
+(setq show-trailing-whitespace t)
+;;(toggle-show-trailing-whitespace-show-ws)
+;;(add-hook 'before-save-hook 'delete-trailing-whitespace)
 ;;
 ;; Show line numbers
 ;;
@@ -137,13 +138,17 @@
 ;; sudo apt-get install global
 ;;
 (setq inhibit-startup-message t)
-(add-to-list 'load-path "/usr/share/emacs/site-lisp/global")
-(require 'gtags)
-(defun nm-gtags-hook () (gtags-mode 1))
-(add-hook 'c-mode-common-hook 'nm-gtags-hook)
-(global-set-key "\M-." 'gtags-find-tag)
-(global-set-key "\M-," 'gtags-find-rtag)
-(global-set-key "\M-/" 'gtags-find-pattern)
+;;
+(cond
+ ((string-equal system-type "gnu/linux")
+  (progn
+    (add-to-list 'load-path "/usr/share/emacs/site-lisp/global")
+    (require 'gtags)
+    (defun nm-gtags-hook () (gtags-mode 1))
+    (add-hook 'c-mode-common-hook 'nm-gtags-hook)
+    (global-set-key "\M-." 'gtags-find-tag)
+    (global-set-key "\M-," 'gtags-find-rtag)
+    (global-set-key "\M-/" 'gtags-find-pattern))))
 ;;
 ;; Java setup
 ;;
@@ -162,11 +167,22 @@
                                 standard-indent 2
                                 indent-tabs-mode 1)))
 ;;
-;; Emacs server/client setup. Set server name based on DISPAY value,
-;; so that we can have separate emacs servers for the main X session
-;; and a remote X session via NX.
+;; Emacs server/client setup. For linux, set server name based on
+;; DISPAY value, so that we can have separate emacs servers for the
+;; main X session and a remote X session via NX. For macos, we need a
+;; slightly different socket name setup.
+;;
+(cond
+ ((string-equal system-type "windows-nt") 
+  (progn
+    (message "Does this even work on windows?")))
+ ((string-equal system-type "darwin") 
+  (progn
+    (setq server-socket-dir (format "/tmp/emacs%d" (user-uid)))))
+ ((string-equal system-type "gnu/linux")
+  (progn
+    (setq server-name (format "server%s" (getenv "DISPLAY"))))))
 ;;
 (defun ss ()
   (interactive)
-  (setq server-name (format "server%s" (getenv "DISPLAY")))
   (server-start))
