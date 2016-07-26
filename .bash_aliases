@@ -771,7 +771,12 @@ function setgoroot() {
     return
   fi
 
-  warngodirs $d
+  if [ -x "$d/bin/gccgo" ]; then
+    echo "setting LD_LIBRARY_PATH to $d/lib64"
+    export LD_LIBRARY_PATH="$d/lib64"
+  else
+    warngodirs $d
+  fi
 
   echo "MYGOROOT set to $d"
   export MYGOROOT=$d
@@ -788,6 +793,11 @@ function unsetgoroot() {
 
   # Extract MYGOROOT/bin from PATH
   removeFromPathIfPresent "$MYGOROOT/bin"
+
+  if [ -x "$MYGOROOT/bin/gccgo" ]; then
+    echo "Unsetting LD_LIBRARY_PATH"
+    unset LD_LIBRARY_PATH
+  fi
 
   echo "Unsetting MYGOROOT"
   unset MYGOROOT
@@ -939,8 +949,8 @@ alias show_image=eog
 alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
-alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap"
-alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
+alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold"
+alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
 
 
 # Android
