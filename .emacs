@@ -55,10 +55,6 @@
 ;;
 (autoload 'gid "idutils" nil t)
 ;;
-;; guru
-;;
-(load "go-guru")
-;;
 ;; git
 ;;
 (defun enter-git-blame-mode ()
@@ -166,6 +162,7 @@
 ;;
 (add-hook 'go-mode-hook (lambda ()
                           (setq-default)
+                          (load "go-guru")
                           (setq tab-width 4
                                 standard-indent 2
                                 indent-tabs-mode 1)))

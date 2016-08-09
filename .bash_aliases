@@ -432,6 +432,47 @@ function gcc-gentags() {
   cat cxxfiles.txt | gtags --file -
 }
 
+function gccgo-mkid() {
+  local PR="-print0"
+
+  # Must be run from root
+  if [ ! -d ./gofrontend ]; then
+     echo "unable to locate gofrontend, can't continue."
+     return
+  fi
+  if [ ! -d ./gcc-trunk/gcc ]; then
+     echo "unable to locate ./gcc-trunk/gcc, can't continue."
+     return
+  fi
+
+  # Everything in gcc, libcpp, and gofrontend
+  find ./gcc-trunk/gcc \
+    -name testsuite -prune -o \
+    -name "*.S" ${PR} -o \
+    -name "*.md" ${PR} -o \
+    -name "*.opt" ${PR} -o \
+    -name "*.cc" ${PR} -o \
+    -name "*.c" ${PR} -o \
+    -name "*.cpp" ${PR} -o \
+    -name "*.h" ${PR} > cxxfiles0.txt
+  find ./gofrontend/go \
+    -name "*.cc" ${PR} -o \
+    -name "*.c" ${PR} -o \
+    -name "*.cpp" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles0.txt
+  find ./gcc-trunk/lipcpp \
+    -name "*.cc" ${PR} -o \
+    -name "*.c" ${PR} -o \
+    -name "*.cpp" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles0.txt
+
+  echo "... generated cxxfiles0.txt"
+  echo "... running mkid"
+  mkid --files0-from cxxfiles0.txt
+  echo "... removing cxxfiles0.txt"
+  rm -f cxxfiles0.txt
+}
+
 function gcc-mkid() {
   gcc-genfiles 0
   mkid --files0-from cxxfiles0.txt
@@ -730,7 +771,12 @@ function setgoroot() {
     return
   fi
 
-  warngodirs $d
+  if [ -x "$d/bin/gccgo" ]; then
+    echo "setting LD_LIBRARY_PATH to $d/lib64"
+    export LD_LIBRARY_PATH="$d/lib64"
+  else
+    warngodirs $d
+  fi
 
   echo "MYGOROOT set to $d"
   export MYGOROOT=$d
@@ -747,6 +793,11 @@ function unsetgoroot() {
 
   # Extract MYGOROOT/bin from PATH
   removeFromPathIfPresent "$MYGOROOT/bin"
+
+  if [ -x "$MYGOROOT/bin/gccgo" ]; then
+    echo "Unsetting LD_LIBRARY_PATH"
+    unset LD_LIBRARY_PATH
+  fi
 
   echo "Unsetting MYGOROOT"
   unset MYGOROOT
@@ -898,8 +949,8 @@ alias show_image=eog
 alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
-alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap"
-alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
+alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold"
+alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
 
 
 # Android
