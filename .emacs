@@ -160,6 +160,7 @@
 ;;
 ;; Go setup
 ;;
+(require 'go-mode-autoloads)
 (add-hook 'go-mode-hook (lambda ()
                           (setq-default)
                           (load "go-guru")
