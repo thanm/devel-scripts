@@ -543,8 +543,13 @@ function run_git_meld_hash() {
   fi
   extr="$*"
 
-  echo git difftool -y -t meld $HASH1 $HASH2 $extr
-  git difftool -y -t meld $HASH1 $HASH2 $extr
+  if [ -z "$GRDIFF" ]; then
+    echo "error: please set GRDIFF to graphical diff tool."
+    return
+  fi
+
+  echo git difftool -y -t ${GRDIFF} $HASH1 $HASH2 $extr
+  git difftool -y -t ${GRDIFF} $HASH1 $HASH2 $extr
 }
 
 function run_git_meld_branch() {
@@ -566,8 +571,14 @@ function run_git_meld_branch() {
   if [ ! -z "$FILES" ]; then
      EXTRA="-- $FILES"
   fi
-  echo git difftool -y -t meld master $WORKB $EXTRA
-  git difftool -y -t meld master $WORKB $EXTRA
+
+  if [ -z "$GRDIFF" ]; then
+    echo "error: please set GRDIFF to graphical diff tool."
+    return
+  fi
+
+  echo git difftool -y -t ${GRDIFF} master $WORKB $EXTRA
+  git difftool -y -t ${GRDIFF} master $WORKB $EXTRA
 }
 
 function run_git_show_local_branch_status() {
@@ -995,19 +1006,15 @@ alias bfhelp=help_btrfs
 alias py34=python3.4
 alias android_python_lint=pep8
 
-# Graphical diff
-alias linux_graphical_diff=meld
-alias macos_graphical_diff=opendiff
-
 # Git
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias glo="git log --oneline"
 alias glf='git log --name-only'
 alias gitshowhead="git show -s --oneline HEAD"
-alias gitmeld='git difftool -t meld -y'
-alias gitmeldc='git difftool --cached -t meld -y'
-alias gitmeldh='git difftool -t meld -y HEAD^ '
+alias gitmeld='git difftool -t ${GRDIFF} -y'
+alias gitmeldc='git difftool --cached -t ${GRDIFF} -y'
+alias gitmeldh='git difftool -t ${GRDIFF} -y HEAD^ '
 alias gitlogdiff='git log -u -1 ' # supply sha as arg
 alias gitlocalcredentialcache='git config --local credential.helper "cache --timeout=14400"'
 alias gitmeldhash=run_git_meld_hash # supply sha as arg
@@ -1017,6 +1024,9 @@ alias repolistgit='repo forall -c pwd'
 alias localgitconfig='git config --local user.name "Than McIntosh" ; git config --local user.email thanm@google.com'
 alias globalgitconfig='git config --global user.name "Than McIntosh" ; git config --global user.email thanm@google.com'
 
+# Graphical diff
+alias linux_graphical_diff=meld
+alias macos_graphical_diff=opendiff
 
 # adb stuff
 alias adbstartservice='adb am startservice IntentName'

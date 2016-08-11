@@ -105,6 +105,9 @@
 ;;
 ;; Key setup. Assumes version 19 or later.
 ;;
+(global-set-key [f1] 'text-scale-increase)
+(global-set-key [f2] 'text-scale-decrease)
+(global-set-key [f3] 'apply-my-key-bindings)
 (global-set-key [f5] 'goto-line)
 (global-set-key [f6] 'find-file-other-frame)
 (global-set-key [f7] 'make-frame)
@@ -194,6 +197,7 @@
     (message "Does this even work on windows?")))
  ((string-equal system-type "darwin") 
   (progn
+    (setenv "PATH" (concat (getenv "PATH") ":/Users/thanm/bin"))    
     (setq server-socket-dir (format "/tmp/emacs%d" (user-uid)))))
  ((string-equal system-type "gnu/linux")
   (progn
