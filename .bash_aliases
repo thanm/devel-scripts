@@ -9,7 +9,11 @@ startemacsclient() {
 }
 
 startemacs() {
-  emacs $* &
+  local em="$EDITOR"
+  if [ -z "$EDITOR" ]; then
+    em=emacs
+  fi
+  ${em} $* &
   disown $!
 }
 
@@ -455,12 +459,12 @@ function gccgo-mkid() {
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
     -name "*.h" ${PR} > cxxfiles0.txt
-  find ./gofrontend/go \
+  find ./gofrontend \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
     -name "*.h" ${PR} >> cxxfiles0.txt
-  find ./gcc-trunk/lipcpp \
+  find ./gcc-trunk/libcpp \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
@@ -941,6 +945,36 @@ function run_mp_rsync() {
   popd
 }
 
+function run_clang_format_gnustyle() {
+  local CPPFILE="$1"
+  local INDFILE="${CPPFILE}.ind"
+
+  if [ -z "$CPPFILE" ]; then
+    echo "** supply single C++ filename as argument"
+    return
+  fi
+  touch $INDFILE
+  if [ $? != 0 ]; then
+    echo "** untable to write $INDFILE"
+    return
+  fi
+
+  clang-format -style="{BasedOnStyle: Google, BreakBeforeBraces: GNU, AlwaysBreakAfterReturnType: All, AllowShortBlocksOnASingleLine: false, UseTab: ForIndentation}" < $CPPFILE > $INDFILE
+  echo "indented version of $CPPFILE written to $INDFILE"
+}
+
+function cdgoroot() {
+  local GR=`go env GOROOT`
+  echo pushd $GR
+  pushd $GR
+}
+
+function cdgopath() {
+  local GP=`go env GOPATH`
+  echo pushd $GP
+  pushd $GP
+}
+
 #......................................................................
 
 alias hh='history 25'
@@ -1052,5 +1086,4 @@ alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=ma
 # zgrviewer
 alias zgrviewit=run_zgrviewer
 
-# temporary
-alias ssdgosetup=select_ssd_go_repo
+
