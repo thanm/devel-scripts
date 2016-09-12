@@ -345,7 +345,7 @@ function llvmroot() {
   return 1
 }
 
-function llvm-genfiles() {
+function llvm-genfiles-flavor() {
   local S="$1"
   local PR="-print${S}"
   local SKIPARGS="-name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
@@ -380,6 +380,12 @@ function llvm-genfiles() {
   fi
 }
 
+function llvm-genfiles() {
+  llvm-genfiles-flavor 0 &
+  llvm-genfiles-flavor &
+  wait
+}
+
 function llvm-gentags() {
   local LLVMROOT=`llvmroot`
   if [ $? != 0 ]; then
@@ -390,6 +396,7 @@ function llvm-gentags() {
     rm -f GPATH GTAGS GRTAGS GSYMS
     echo "... running gtags in $LLVMROOT"
     gtags --file cxxfiles.txt
+    rm -f cxxfiles0.txt mkfiles0.txt
     popd 1> /dev/null
     echo "... gtags created in $LLVMROOT"
   fi
@@ -401,18 +408,17 @@ function llvm-mkid() {
     echo "unable to local llvm dir and build dir -- no action taken"
   else
     llvm-genfiles
-    llvm-genfiles 0
     pushd $LLVMROOT 1> /dev/null
     rm -f ID
     echo "... running mkid in $LLVMROOT"
     mkid --files0-from cxxfiles0.txt
-    rm -f cxxfiles0.txt
+    rm -f cxxfiles0.txt mkfiles0.txt
     popd 1> /dev/null
     echo "... ID file created in $LLVMROOT"
   fi
 }
 
-function gcc-genfiles() {
+function gcc-genfiles-single() {
   local S="$1"
   local PR="-print${S}"
 
@@ -436,8 +442,9 @@ function gcc-gentags() {
   cat cxxfiles.txt | gtags --file -
 }
 
-function gccgo-mkid() {
-  local PR="-print0"
+function gccgo-genfiles() {
+  local S="$1"
+  local PR="-print${S}"
 
   # Must be run from root
   if [ ! -d ./gofrontend ]; then
@@ -458,23 +465,42 @@ function gccgo-mkid() {
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} > cxxfiles0.txt
+    -name "*.h" ${PR} > cxxfiles${S}.txt
   find ./gofrontend \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} >> cxxfiles0.txt
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
   find ./gcc-trunk/libcpp \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} >> cxxfiles0.txt
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/include \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+}
 
-  echo "... generated cxxfiles0.txt"
+function gccgo-mkid() {
+
+  # Must be run from root
+  if [ ! -d ./gofrontend ]; then
+     echo "unable to locate gofrontend, can't continue."
+     return
+  fi
+  if [ ! -d ./gcc-trunk/gcc ]; then
+     echo "unable to locate ./gcc-trunk/gcc, can't continue."
+     return
+  fi
+
+  echo "... generated cxxfiles"
+  gccgo-genfiles 0 &
+  gccgo-genfiles &
+  wait
+
   echo "... running mkid"
   mkid --files0-from cxxfiles0.txt
   echo "... removing cxxfiles0.txt"
-  rm -f cxxfiles0.txt
+  rm -f cxxfiles0.txt mkfiles0.txt
 }
 
 function gcc-mkid() {
@@ -975,6 +1001,65 @@ function cdgopath() {
   pushd $GP
 }
 
+function gccgobinutilsconfig() {
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+
+  if [ ! -d ../binutils ]; then
+    echo "** error: no ../binutils dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  mkdir -p $ROOT/binutils-cross
+  CMD="../binutils/configure --prefix=$ROOT/binutils-cross --disable-multilib --enable-gold --enable-plugins"
+
+  echo running $CMD
+  $CMD
+}
+
+function gccgotrunkconfig() {
+  local ARG="$1"
+  local EXTRA=""
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+
+  if [ ! -d ../gofrontend ]; then
+    echo "** error: no ../gofrontend dir"
+    return
+  fi
+  if [ ! -d ../gcc-trunk ]; then
+    echo "** error: no ../gcc-trunk dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  CMD="../gcc-trunk/configure --prefix=$ROOT/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=$ROOT/binutils-cross/bin/ld.gold"
+
+  if [ "z${ARG}" == "zdebug" ]; then
+    echo running $CMD CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"
+    $CMD CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"
+  else
+    echo running $CMD
+    $CMD
+  fi
+
+}
+
+function gccgotrunkconfigdebug() {
+  gccgotrunkconfig debug
+}
+
 #......................................................................
 
 alias hh='history 25'
@@ -994,7 +1079,7 @@ alias show_image=eog
 alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
-alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold"
+alias gcctrunkconfigmaster="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-master/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk-master/binutils-cross/bin/ld.gold"
 alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
 
 
@@ -1085,5 +1170,3 @@ alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=ma
 
 # zgrviewer
 alias zgrviewit=run_zgrviewer
-
-
