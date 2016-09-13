@@ -60,6 +60,18 @@ GCC
   Swiss-army-knife script for partially automating the tricky process of building a cross-compiler version of GCC (runs on host X, targets machine Y).
 
 
+GCCGO
+-----
+
+* dump-gccgo-obj-goexports.py
+
+  Extracts export data from a gccgo-compiled object file. Works on archives, objects and on *.gox files.
+  
+* setup-gccgo-trunk-links.py
+
+  Modifies a gcc trunk repository (git or svn) for use in combination with a stand-alone gofrontend repo, e.g. removes the mirrored gccgo sources and replaces them with symbolic links, as described in [the gccgo HACKING notes](https://go.googlesource.com/gofrontend/+/master/HACKING).
+  
+
 Miscellaneous
 -------------
 
