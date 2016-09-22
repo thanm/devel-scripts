@@ -18,18 +18,7 @@ import script_utils as u
 
 flag_dryrun = False
 flag_echo = False
-
-
-def dochdir(thedir):
-  """Switch to dir."""
-  if flag_echo:
-    sys.stderr.write("cd " + thedir + "\n")
-  if flag_dryrun:
-    return
-  try:
-    os.chdir(thedir)
-  except OSError as err:
-    u.error("chdir failed: %s" % err)
+flag_reverse = False
 
 
 def docmd(cmd):
@@ -41,16 +30,48 @@ def docmd(cmd):
   u.docmd(cmd)
 
 
+def undolink(link):
+  """Undo a symbolic link."""
+  try:
+    _ = os.readlink(link)
+  except OSError as ose:
+    u.warning("warning: %s not a link (%s), "
+              "skipping" % (link, ose))
+    return
+  docmd("rm %s" % link)
+  docmd("git checkout %s" % link)
+
+
 def perform():
   """Create links in a gcc trunk repo for gofrontend development."""
-  docmd("rm -rf gcc/go/gofrontend")
-  docmd("ln -s ../../../gofrontend/go gcc/go/gofrontend")
-  docmd("rm -rf libgo")
-  docmd("mkdir libgo")
-  libgo = "../gofrontend/libgo"
-  for item in os.listdir(libgo):
-    docmd("ln -s ../../gofrontend/libgo/%s libgo/%s" % (item, item))
-  dochdir("..")
+  msg = ""
+  islink = True
+  try:
+    _ = os.readlink("gcc/go/gofrontend")
+  except OSError as ose:
+    msg = "%s" % ose
+    islink = False
+  if flag_reverse:
+    if not islink:
+      u.warning("warning: gcc/go/gofrontend not a link (%s), "
+                "unable to proceed" % msg)
+      return
+    undolink("gcc/go/gofrontend")
+    for item in os.listdir("libgo"):
+      undolink("libgo/%s" % item)
+    docmd("git checkout libgo")
+  else:
+    if islink:
+      u.warning("warning: gcc/go/gofrontend is already a link, "
+                "unable to proceed")
+      return
+    docmd("rm -rf gcc/go/gofrontend")
+    docmd("ln -s ../../../gofrontend/go gcc/go/gofrontend")
+    docmd("rm -rf libgo")
+    docmd("mkdir libgo")
+    libgo = "../gofrontend/libgo"
+    for item in os.listdir(libgo):
+      docmd("ln -s ../../gofrontend/libgo/%s libgo/%s" % (item, item))
 
 
 def usage(msgarg):
@@ -63,6 +84,7 @@ def usage(msgarg):
 
     options:
     -d    increase debug msg verbosity level
+    -R    reverse mode (undo links and restore files)
     -D    dryrun mode (echo commands but do not execute)
 
     """ % me
@@ -71,10 +93,10 @@ def usage(msgarg):
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_dryrun, flag_echo
+  global flag_dryrun, flag_echo, flag_reverse
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dD")
+    optlist, args = getopt.getopt(sys.argv[1:], "dDR")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -87,6 +109,8 @@ def parse_args():
     elif opt == "-D":
       flag_dryrun = True
       flag_echo = True
+    elif opt == "-R":
+      flag_reverse = True
 
   if not os.path.exists("gcc"):
     usage("expected to find gcc subdir")

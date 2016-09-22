@@ -1026,6 +1026,7 @@ function gccgobinutilsconfig() {
 function gccgotrunkconfig() {
   local ARG="$1"
   local EXTRA=""
+  local BS="--disable-bootstrap"
   local CMD=""
   local HERE=""
   local ROOT=""
@@ -1044,7 +1045,12 @@ function gccgotrunkconfig() {
   ROOT=`pwd`
   cd $HERE
 
-  CMD="../gcc-trunk/configure --prefix=$ROOT/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=$ROOT/binutils-cross/bin/ld.gold"
+  
+  if [ "z${ARG}" == "zbootstrap" ]; then
+    BS=""
+  fi
+
+  CMD="../gcc-trunk/configure --prefix=$ROOT/cross --enable-languages=c,c++,go --enable-libgo $BS --with-ld=$ROOT/binutils-cross/bin/ld.gold"
 
   if [ "z${ARG}" == "zdebug" ]; then
     echo running $CMD CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"
