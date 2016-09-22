@@ -1,10 +1,12 @@
 #!/usr/bin/python
-"""Set up a GCC repository.
+"""Set up GCC repository for gccgo development.
 
-Download and configure a GCC repository. There are many options
-available for downloading GCC -- there is subversion, GCC git (from
-git://gcc.gnu.org/git/gcc.git), and github GCC
-(https://github.com/gcc-mirror/gcc.git).
+Developing gccgo requires a copy of the gofrontend repository
+along side a GCC repository, with soft links from gcc into
+gofrontend. This script automates the process of creating
+the necessary links. The assumption is that the root repo
+contains "gcc-trunk" (GCC repo) and "gofrontend" at the
+same level.
 
 """
 

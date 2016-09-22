@@ -69,7 +69,7 @@ GCCGO
   
 * setup-gccgo-trunk-links.py
 
-  Modifies a gcc trunk repository (git or svn) for use in combination with a stand-alone gofrontend repo, e.g. removes the mirrored gccgo sources and replaces them with symbolic links, as described in [the gccgo HACKING notes](https://go.googlesource.com/gofrontend/+/master/HACKING).
+  Modifies a gcc trunk repository (git or svn) for use in combination with a stand-alone gofrontend repo, e.g. removes the mirrored gccgo sources and replaces them with symbolic links, as described in [the gccgo HACKING notes](https://go.googlesource.com/gofrontend/+/master/HACKING#30).
   
 
 Miscellaneous
