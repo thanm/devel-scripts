@@ -118,6 +118,18 @@ go_install = "/place/go/install/here"
 # Where to look for gccgo-based go installation
 gccgo_install = "/place/gccgo/install/here"
 
+# Hard-coded list of functions to analyze more closely
+interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
+                      "gc.escwalkBody"),
+                     ("cmd/compile/internal/ssa.cmpVal",
+                      "ssa.cmpVal"),
+                     ("cmd/compile/internal/ssa.applyRewrite",
+                      "ssa.applyRewrite"),
+                     ("cmd/compile/internal/ssa.liveValues",
+                      "ssa.liveValues.isra.194"),
+                     (None, "ssa.$thunk9")]
+
+
 # Count of lines in ppo file
 ppolines = 0
 
@@ -136,13 +148,13 @@ gc_variant = {
 gccgo_variant = {
     "tag": "gccgo",
     "install": gccgo_install,
-    "extra_flags": "-O -static -fgo-optimize-allocs"
+    "extra_flags": "-O2 -static -fgo-optimize-allocs"
     }
 
 llgo_variant = {
     "tag": "llgo",
     "install": "/ssd2/llgobuild-addrt/build.opt/gotree",
-    "extra_flags": "-O"
+    "extra_flags": "-O2"
     }
 
 variants = {
@@ -526,6 +538,11 @@ def process_variant(variant, ppo):
   docmdout("perf report -i perf.data.%s" % variant, report_file)
   u.trim_perf_report_file(report_file)
   generated_reports[report_file] = 1
+  # pprof top
+  preport_file = "pproftop.%s.txt" % variant
+  ppo_append(ppo, "pprof --top perf.data.%s " % variant,
+             preport_file)
+  generated_reports[preport_file] = 1
 
   if 1 == 0:
     # need to build libgo.so with -fno-omit-frame-pointer
@@ -535,15 +552,11 @@ def process_variant(variant, ppo):
     u.trim_perf_report_file("cgrep.gccgo.txt")
 
   # annotate and disassemble a couple of functions
-  funcs = ["cmd/compile/internal/gc.escwalkBody",
-           "cmd/compile/internal/ssa.cmpVal",
-           "cmd/compile/internal/ssa.applyRewrite",
-           "cmd/compile/internal/ssa.liveValues",
-           "ssa.$thunk9"]
   fn = 1
-  for f in funcs:
+  for tup in interesting_funcs:
+    f, gf = tup
     if variant == "gccgo":
-      f = os.path.basename(f)
+      f = gf
     annotate(f, variant, fn, ppo)
     disas(f, build_dir, variant, fn, ppo)
     fn += 1
