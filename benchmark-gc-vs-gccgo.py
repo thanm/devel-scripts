@@ -100,6 +100,9 @@ flag_skip_bootstrap = False
 # Skip benchmark run
 flag_skip_benchrun = False
 
+# Generate HTML versions of reports
+flag_genhtml = False
+
 # Where to get go
 go_git = "https://go.googlesource.com/go"
 
@@ -111,6 +114,10 @@ gccgo_install = "/ssd/gcc-trunk/cross"
 
 # Count of lines in ppo file
 ppolines = 0
+
+# Files we generate
+generated_reports = {}
+
 
 # Variants/flavors that we're benchmarking
 
@@ -406,9 +413,9 @@ def benchmark(repo, runscript, wrapcmd, tag, variant):
 def ppo_append(ppo, cmd, outf):
   """Append cmd to ppo command file."""
   global ppolines
-  cmd = cmd.replace("$", "\$")
+  cmd = cmd.replace(r"$", r"\$")
   if flag_dryrun:
-    u.verbose(0, "%s\n")
+    u.verbose(0, "%s" % cmd)
     return
   errf = "/tmp/ppoerr.%d.%d" % (ppolines, len(cmd))
   ppolines += 1
@@ -438,10 +445,11 @@ def annotate(func, tag, fn, ppo):
       u.warning("skipping annotate for %s, could not "
                 "find in %s" % (func, repfile))
       return
+  report_file = "ann%d.%s.txt" % (fn, tag)
   ppo_append(ppo,
              "perf annotate -i perf.data.%s "
-             "-s %s" % (tag, func),
-             "ann%d.%s.txt" % (fn, tag))
+             "-s %s" % (tag, func), report_file)
+  generated_reports[report_file] = 1
 
 
 def disas(func, repo, tag, fn, ppo):
@@ -474,13 +482,17 @@ def disas(func, repo, tag, fn, ppo):
     u.verbose(0, "... malformed staddr/size (%s, %s) "
               "for %s, skipping" % (hexstaddr, hexsize, func))
     return
+  asm_file = "asm%d.%s.txt" % (fn, tag)
   ppo_append(ppo,
              "objdump -dl --start-address=0x%x "
              "--stop-address=0x%x %s" % (staddr, enaddr, tgt),
-             "asm%d.%s.txt" % (fn, tag))
+             asm_file)
+  generated_reports[asm_file] = 1
+  pprof_file = "pprofdis%d.%s.txt" % (fn, tag)
   ppo_append(ppo,
              "pprof --disasm=%s perf.data.%s " % (func, tag),
-             "pprofdis%d.%s.txt" % (fn, tag))
+             pprof_file)
+  generated_reports[pprof_file] = 1
 
 
 def process_variant(variant, ppo):
@@ -502,8 +514,11 @@ def process_variant(variant, ppo):
       gperfwrap = "perf record -g -o %s/perf.data.cg.%s" % (here, variant)
       benchmark(build_dir, runit, gperfwrap, "cgperf", variant)
   # report
-  docmdout("perf report -i perf.data.%s" % variant, "rep.%s.txt" % variant)
-  u.trim_perf_report_file("rep.%s.txt" % variant)
+  report_file = "rep.%s.txt" % variant
+  docmdout("perf report -i perf.data.%s" % variant, report_file)
+  u.trim_perf_report_file(report_file)
+  generated_reports[report_file] = 1
+
   if 1 == 0:
     # need to build libgo.so with -fno-omit-frame-pointer
     # before doing this
@@ -564,6 +579,17 @@ def run_ppo_cmds(outf, ppo):
   ppo.close()
 
 
+def generate_html():
+  """Post-process reports to create html out dir."""
+  docmd("rm -rf html")
+  docmd("mkdir html")
+  reports = " ".join(generated_reports)
+  docmd("cp %s html" % reports)
+  hreports = " ".join(["html/%s" % y for y in generated_reports])
+  docmd("render-asm.py %s" % hreports)
+  docmd("rm %s" % hreports)
+
+
 def perform():
   """Main routine for script."""
   repo_setup()
@@ -572,6 +598,8 @@ def perform():
   for v in variants:
     process_variant(v, ppo)
   run_ppo_cmds(outf, ppo)
+  if flag_genhtml:
+    generate_html()
 
 
 def usage(msgarg):
@@ -588,6 +616,7 @@ def usage(msgarg):
     -B    skip bootstrap if dirs already present
     -N    skip benchmark run (useful mainly for script debugging)
     -D    dryrun mode (echo commands but do not execute)
+    -H    emit HTML for assembly dumps and reports
     -g X  benchmark the go compiler drawn from go root X
     -G X  benchmark the gccgo compiler drawn from gccgo root X
     -L    add experimental llgo variant (currently non-working)
@@ -597,8 +626,8 @@ def usage(msgarg):
 
     $ mkdir /tmp/benchrun
     $ cd /tmp/benchrun
-    $ %s \
-        -g /ssd/mygorepo \
+    $ %s \\
+        -g /ssd/mygorepo \\
         -G /ssd/mygccgoinstall
 
     The command above will:
@@ -622,10 +651,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_skip_bootstrap, flag_skip_benchrun
-  global flag_keepwork, go_install, gccgo_install
+  global flag_keepwork, go_install, gccgo_install, flag_genhtml
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBNDLPd:G:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBNDHLPd:G:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -648,6 +677,8 @@ def parse_args():
       flag_skip_benchrun = True
     elif opt == "-P":
       flag_keepwork = True
+    elif opt == "-H":
+      flag_genhtml = True
     elif opt == "-G":
       gccgo_install = arg
       variants["gccgo"]["install"] = gccgo_install

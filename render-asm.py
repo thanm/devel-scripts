@@ -43,17 +43,17 @@ pre {
 }
 
 pre {
-        counter-reset: linecounter;
+  counter-reset: linecounter;
 }
 
-pre span.line{
-        counter-increment: linecounter;
+pre span.line {
+  counter-increment: linecounter;
 }
 
 pre span.line:before{
-        content: counter(linecounter);
-        width: 2em;
-        display: inline-block;
+  content: counter(linecounter);
+  width: 2em;
+  display: inline-block;
 }
 
 </style>
