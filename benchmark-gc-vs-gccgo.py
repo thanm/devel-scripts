@@ -38,6 +38,12 @@ Output files are:
            benchmark run; <flavor> is either 'gccgo' or 'gc', and <K>
            is index of function of interest
 
+  pprofdis<K>.<flavor>.txt
+
+           output of 'pprof disasm' run on perf.data collected from
+           benchmark run; <flavor> is either 'gccgo' or 'gc', and <K>
+           is index of function of interest
+
   asm<K>.<flavor>.txt
 
            output of 'objdump -dl' on compiler executable used for
@@ -107,10 +113,10 @@ flag_genhtml = False
 go_git = "https://go.googlesource.com/go"
 
 # Where to look for gc-based go installation
-go_install = "/ssd2/go"
+go_install = "/place/go/install/here"
 
 # Where to look for gccgo-based go installation
-gccgo_install = "/ssd/gcc-trunk/cross"
+gccgo_install = "/place/gccgo/install/here"
 
 # Count of lines in ppo file
 ppolines = 0
@@ -130,7 +136,7 @@ gc_variant = {
 gccgo_variant = {
     "tag": "gccgo",
     "install": gccgo_install,
-    "extra_flags": "-O -fgo-optimize-allocs"
+    "extra_flags": "-O -static -fgo-optimize-allocs"
     }
 
 llgo_variant = {
@@ -458,6 +464,8 @@ def disas(func, repo, tag, fn, ppo):
   regex = re.compile(r"^(\S+)\s.+\s(\S+)\s+(\S+)$")
   tgt = "%s/pkg/tool/linux_amd64/compile" % repo
   u.verbose(1, "looking for %s in output of objdump -t %s" % (func, tgt))
+  if flag_dryrun:
+    return
   lines = u.docmdlines("objdump -t %s" % tgt)
   hexstaddr = None
   hexsize = None
@@ -654,7 +662,7 @@ def parse_args():
   global flag_keepwork, go_install, gccgo_install, flag_genhtml
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBNDHLPd:G:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBNDHLPg:G:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -680,14 +688,34 @@ def parse_args():
     elif opt == "-H":
       flag_genhtml = True
     elif opt == "-G":
+      u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg
       variants["gccgo"]["install"] = gccgo_install
     elif opt == "-g":
+      u.verbose(1, "setting go_install to %s" % arg)
       go_install = arg
       variants["gc"]["install"] = go_install
     elif opt == "-L":
       u.verbose(0, "adding experimental llgo variant")
       variants["llgo"] = llgo_variant
+
+    # Make sure gccgo install look ok
+  if not os.path.exists(gccgo_install):
+    usage("unable to locate gccgo installation %s" % gccgo_install)
+  if not os.path.isdir(gccgo_install):
+    usage("gccgo installation %s not a directory" % gccgo_install)
+  gccgobin = os.path.join(gccgo_install, "bin/gccgo")
+  if not os.path.exists(gccgobin):
+    usage("bad gccgo installation, can't access %s" % gccgobin)
+
+  # Make sure go install look ok
+  if not os.path.exists(go_install):
+    usage("unable to locate go installation %s" % go_install)
+  if not os.path.isdir(go_install):
+    usage("go installation %s not a directory" % go_install)
+  gobin = os.path.join(go_install, "bin/go")
+  if not os.path.exists(gobin):
+    usage("bad go installation, can't access %s" % gobin)
 
 #
 #......................................................................

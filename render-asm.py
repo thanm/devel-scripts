@@ -73,8 +73,11 @@ pre span.line:before{
 """ % (infile, infile)
 
   outf.write(preamble)
+  lc = 1
   for line in lines:
-    outf.write("<span class=line>%s</span>\n" % cgi.escape(line.rstrip()))
+    outf.write("<span class=line id=\"L%d\"> "
+               "%s</span>\n" % (lc, cgi.escape(line.rstrip())))
+    lc += 1
   outf.write("</pre>\n")
   outf.write("</div>\n")
   outf.write("</body>\n")
