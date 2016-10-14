@@ -73,6 +73,7 @@
 (global-set-key [C-=] 'my-recenter)
 (global-set-key [C-tab] 'delete-trailing-whitespace)
 (global-set-key [M-=] 'gid)
+(global-set-key [?\M-=] 'gid)
 ;;
 ;; Function key setup. Assumes version 19 or later.
 ;;
@@ -97,12 +98,6 @@
 ;;
 (define-key esc-map "\t" 'indent-relative)
 ;;
-;; Bell
-;;
-(setq visible-bell 1)
-;;
-;;(setq sun-esc-bracket t)
-;;
 ;; Key setup. Assumes version 19 or later.
 ;;
 (global-set-key [f1] 'text-scale-increase)
@@ -115,6 +110,7 @@
 (global-set-key [f9] 'what-line)
 (global-set-key [f11] 'revert-buffer)
 (global-set-key [f12] 'eatwhite)
+(global-set-key [M-=] 'gid)
 ;;
 ;; Add an exit hook that asks for confirmation if there is
 ;; more than one file buffer.
@@ -197,10 +193,11 @@
     (message "Does this even work on windows?")))
  ((string-equal system-type "darwin") 
   (progn
-    (setenv "PATH" (concat (getenv "PATH") ":/Users/thanm/bin"))    
+    (setenv "PATH" (concat (getenv "PATH") ":/Users/thanm/bin:/usr/local/bin"))    
     (setq server-socket-dir (format "/tmp/emacs%d" (user-uid)))))
  ((string-equal system-type "gnu/linux")
   (progn
+    (setq visible-bell 1)
     (setq server-name (format "server%s" (getenv "DISPLAY"))))))
 ;;
 (defun ss ()
