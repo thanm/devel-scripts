@@ -437,7 +437,7 @@ function gcc-genfiles-single() {
 }
 
 function gcc-gentags() {
-  gcc-genfiles
+  gcc-genfiles-single
   rm -f GPATH GTAGS GRTAGS GSYMS
   cat cxxfiles.txt | gtags --file -
 }
@@ -504,7 +504,7 @@ function gccgo-mkid() {
 }
 
 function gcc-mkid() {
-  gcc-genfiles 0
+  gcc-genfiles-single 0
   mkid --files0-from cxxfiles0.txt
   rm -f cxxfiles0.txt
 }
