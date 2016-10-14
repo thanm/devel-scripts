@@ -629,6 +629,24 @@ function run_git_show_local_branch_status() {
   git diff --name-status master  $WORKB
 }
 
+function set_git_upstream_tracking_branch_to_master() {
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+
+  # Determine work branch
+  if [ -z "$WORKB" ]; then
+    echo "unable to determine work branch, output of 'git branch' is:"
+    git branch
+    return
+  fi
+  if [ "$WORKB" = "master" ]; then
+    echo "current branch is master, can't set tracking"
+    return
+  fi
+
+  echo git branch --set-upstream-to=origin/master
+  git branch --set-upstream-to=origin/master
+}
+
 function prependToPathIfNotAlreadyPresent () {
   local D="$1"
   case ":$PATH:" in
@@ -1024,12 +1042,17 @@ function gccgobinutilsconfig() {
 }
 
 function gccgotrunkconfig() {
-  local ARG="$1"
-  local EXTRA=""
+  local ARGS="$*"
+  local ARG=""
+  local ARGOPT=""
   local BS="--disable-bootstrap"
   local CMD=""
   local HERE=""
   local ROOT=""
+  local PREFBASE=cross
+  local TF=$(mktemp)
+  local X=
+  local Y=
 
   if [ ! -d ../gofrontend ]; then
     echo "** error: no ../gofrontend dir"
@@ -1045,21 +1068,43 @@ function gccgotrunkconfig() {
   ROOT=`pwd`
   cd $HERE
 
-  
-  if [ "z${ARG}" == "zbootstrap" ]; then
-    BS=""
+  echo "#!/bin/sh" > $TF
+  echo "set -x" >> $TF
+  echo "../gcc-trunk/configure \\" >> $TF
+  echo "  --enable-languages=c,c++,go \\" >> $TF
+  echo "  --enable-libgo \\" >> $TF
+  echo "  --with-ld=$ROOT/binutils-cross/bin/ld.gold \\" >> $TF
+    
+  if [ ! -z "$ARGS" ]; then
+    for ARG in $ARGS
+    do
+      X=$(echo $ARG | tr '=' 'x')
+      if [ "$X" != "$ARG" ]; then
+         ARGOPT=$(echo $ARG | cut -f2 -d=)
+         ARG=$(echo $ARG | cut -f1 -d=)
+      fi
+      echo ARG is $ARG
+      if [ "z${ARG}" = "zbootstrap" ]; then
+        BS=""
+      elif [ "z${ARG}" = "zprefix" ]; then
+        PREFBASE=$ARGOPT
+      elif [ "z${ARG}" = "zdebug" ]; then
+        echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      else
+        echo "*** error -- unknown option/argument $ARG"
+        return
+      fi
+    done
   fi
 
-  CMD="../gcc-trunk/configure --prefix=$ROOT/cross --enable-languages=c,c++,go --enable-libgo $BS --with-ld=$ROOT/binutils-cross/bin/ld.gold"
+  echo "  --prefix=$ROOT/$PREFBASE \\" >> $TF
+  echo "  $BS" >> $TF
 
-  if [ "z${ARG}" == "zdebug" ]; then
-    echo running $CMD CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"
-    $CMD CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"
-  else
-    echo running $CMD
-    $CMD
-  fi
+  #echo "script is:"
+  cat $TF
 
+  sh $TF
+  rm $TF
 }
 
 function gccgotrunkconfigdebug() {
@@ -1136,6 +1181,7 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias glo="git log --oneline"
 alias glf='git log --name-only'
+alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -t ${GRDIFF} -y'
 alias gitmeldc='git difftool --cached -t ${GRDIFF} -y'
