@@ -837,6 +837,8 @@ function setgoroot() {
     warngodirs $d
   fi
 
+  setgobootstrap
+
   echo "MYGOROOT set to $d"
   export MYGOROOT=$d
   prependToPathIfNotAlreadyPresent $MYGOROOT/bin
@@ -860,6 +862,31 @@ function unsetgoroot() {
 
   echo "Unsetting MYGOROOT"
   unset MYGOROOT
+  echo "Unsetting GOROOT_BOOTSTRAP"
+  unset GOROOT_BOOTSTRAP
+  
+}
+
+function setgobootstrap() {
+  local d="$1"
+
+  if [ -z "$d" ]; then
+    # Infer bootstrap based on current go
+    d=`which go`
+    if [ -z "$d" ]; then
+      echo "error: no 'go' in PATH, can't infer GOROOT_BOOTSTRAP"
+      return
+    fi
+    d=`dirname $d`
+    d=`dirname $d`
+  fi
+
+  if [ ! -x "$d/bin/go" ]; then
+    echo "error: can't find bin/go in $d, unable to update GOROOT_BOOTSTRAP"
+    return
+  fi
+  export GOROOT_BOOTSTRAP=$d
+  echo "GOROOT_BOOTSTRAP set to $d"
 }
 
 function setgopath() {
@@ -888,10 +915,8 @@ function setgopath() {
 
   echo "GOPATH set to $d"
   export GOPATH=$d
-  export GOROOT_BOOTSTRAP=/usr/lib/google-golang
 
   appendToPathIfNotAlreadyPresent $GOPATH/bin
-  echo "PATH is now: $PATH"
 }
 
 function unsetgopath() {
