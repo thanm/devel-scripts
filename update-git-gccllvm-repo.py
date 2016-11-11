@@ -32,8 +32,6 @@ def dochdir(thedir):
   """Switch to dir."""
   if flag_echo or flag_dryrun:
     sys.stderr.write("cd " + thedir + "\n")
-  if flag_dryrun:
-    return
   try:
     os.chdir(thedir)
   except OSError as err:

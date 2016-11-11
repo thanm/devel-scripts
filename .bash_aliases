@@ -1206,6 +1206,7 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias glo="git log --oneline"
 alias glf='git log --name-only'
+alias gld='git log -p'
 alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -t ${GRDIFF} -y'

@@ -126,7 +126,7 @@ interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
                      ("cmd/compile/internal/ssa.applyRewrite",
                       "ssa.applyRewrite"),
                      ("cmd/compile/internal/ssa.liveValues",
-                      "ssa.liveValues.isra.194"),
+                      "ssa.liveValues.isra.197"),
                      (None, "ssa.$thunk9")]
 
 
@@ -332,7 +332,7 @@ def bootstrap(repo, goroot, variant):
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src\n" % repo)
       wf.write("export GOOS=linux\n")
-      wf.write("GOARCH=amd64\n")
+      wf.write("export GOARCH=amd64\n")
       wf.write("bash make.bash\n")
       wf.write("if [ $? != 0 ]; then\n")
       wf.write("  echo '*** FAIL ***'\n")
@@ -681,7 +681,7 @@ def parse_args():
     usage(str(err))
 
   if args:
-    usage("unknown extra args")
+    usage("unknown extra args: %s" % " ".join(args))
 
   for opt, arg in optlist:
     if opt == "-d":
