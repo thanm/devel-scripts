@@ -335,7 +335,7 @@ function llvmroot() {
   local HERE=`pwd`
   local CUR=$HERE
   while [ $CUR != "/" ]; do
-    if [ -d $CUR/llvm -a -d $CUR/binutils ]; then
+    if [ -d $CUR/llvm -a -d $CUR/llvm/tools ]; then
       echo $CUR
       return 0
     fi
@@ -373,8 +373,8 @@ function llvm-genfiles-flavor() {
     echo "... running find in $LLVMROOT"
     rm -f cxxfiles${S}.txt mkfiles${S}.txt
     pushd $LLVMROOT 1> /dev/null
-    find llvm build.opt $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
-    find llvm build.opt $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
+    find llvm build.dbg $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
+    find llvm build.dbg $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
     popd 1> /dev/null
     echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
   fi
