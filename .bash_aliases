@@ -335,7 +335,7 @@ function llvmroot() {
   local HERE=`pwd`
   local CUR=$HERE
   while [ $CUR != "/" ]; do
-    if [ -d $CUR/llvm -a -d $CUR/binutils ]; then
+    if [ -d $CUR/llvm -a -d $CUR/llvm/tools ]; then
       echo $CUR
       return 0
     fi
@@ -360,6 +360,7 @@ function llvm-genfiles-flavor() {
     -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
+  local BUILDDIR=build.dbg
 
   if [ "$S" = "0" ]; then
     DOFILT=cat
@@ -371,9 +372,9 @@ function llvm-genfiles-flavor() {
     echo "... running find in $LLVMROOT"
     rm -f cxxfiles${S}.txt mkfiles${S}.txt
     pushd $LLVMROOT 1> /dev/null
-    echo "find llvm build.opt $CFINDARGS | $DOFILT | $DOFILT2"
-    find llvm build.opt $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
-    find llvm build.opt $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
+    echo "find llvm $BUILDDIR $CFINDARGS | $DOFILT"
+    find llvm $BUILDDIR $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
+    find llvm $BUILDDIR $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
     popd 1> /dev/null
     echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
   fi
