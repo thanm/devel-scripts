@@ -348,7 +348,7 @@ function llvmroot() {
 function llvm-genfiles-flavor() {
   local S="$1"
   local PR="-print${S}"
-  local SKIPARGS="-name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
+  local SKIPARGS="-path llvm/tools/clang/tools/extra/test -prune -o -path llvm/tools/clang/test -prune -o -path llvm/projects/compiler-rt/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
   local CFINDARGS="$SKIPARGS \
     -name *.inc $PR -o \
     -name *.cc $PR -o \
@@ -357,9 +357,7 @@ function llvm-genfiles-flavor() {
     -name *.h $PR"
   local MFINDARGS="$SKIPARGS \
     -name CMakeLists.txt $PR -o \
-    -name *.cmake $PR -o \
-    -name LLVMBuild.txt $PR -o \
-    -name Makefile $PR"
+    -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
 
@@ -373,6 +371,7 @@ function llvm-genfiles-flavor() {
     echo "... running find in $LLVMROOT"
     rm -f cxxfiles${S}.txt mkfiles${S}.txt
     pushd $LLVMROOT 1> /dev/null
+    echo "find llvm build.opt $CFINDARGS | $DOFILT | $DOFILT2"
     find llvm build.opt $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
     find llvm build.opt $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
     popd 1> /dev/null
@@ -432,6 +431,7 @@ function gcc-genfiles-single() {
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
+    -name "*.hpp" ${PR} -o \
     -name "*.h" ${PR} > cxxfiles${S}.txt
   echo "... generated cxxfiles${S}.txt"
 }
@@ -475,6 +475,17 @@ function gccgo-genfiles() {
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libbacktrace \
+    -name "*.c" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libgcc \
+    -name "*.c" ${PR} -o \
+    -name "*.inc" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libffi \
+    -name "*.c" ${PR} -o \
+    -name "*.inc" ${PR} -o \
     -name "*.h" ${PR} >> cxxfiles${S}.txt
   find ./gcc-trunk/include \
     -name "*.h" ${PR} >> cxxfiles${S}.txt
@@ -1125,7 +1136,7 @@ function gccgotrunkconfig() {
   echo "  --prefix=$ROOT/$PREFBASE \\" >> $TF
   echo "  $BS" >> $TF
 
-  #echo "script is:"
+  echo "script is:"
   cat $TF
 
   sh $TF
@@ -1134,6 +1145,64 @@ function gccgotrunkconfig() {
 
 function gccgotrunkconfigdebug() {
   gccgotrunkconfig debug
+}
+
+function binutilstrunkconfig() {
+  local ARGS="$*"
+  local ARG=""
+  local ARGOPT=""
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+  local PREFBASE=binutils-cross
+  local TF=$(mktemp)
+  local X=
+  local Y=
+
+  if [ ! -d ../binutils ]; then
+    echo "** error: no ../binutils dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  echo "#!/bin/sh" > $TF
+  echo "set -x" >> $TF
+  echo "../binutils/configure \\" >> $TF
+  echo "  --enable-gold=default \\" >> $TF
+  echo "  --enable-plugins  \\" >> $TF
+    
+  if [ ! -z "$ARGS" ]; then
+    for ARG in $ARGS
+    do
+      X=$(echo $ARG | tr '=' 'x')
+      if [ "$X" != "$ARG" ]; then
+         ARGOPT=$(echo $ARG | cut -f2 -d=)
+         ARG=$(echo $ARG | cut -f1 -d=)
+      fi
+      echo ARG is $ARG
+      if [ "z${ARG}" = "zprefix" ]; then
+        PREFBASE=$ARGOPT
+      elif [ "z${ARG}" = "zdebug" ]; then
+        echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      else
+        echo "*** error -- unknown option/argument $ARG"
+        return
+      fi
+    done
+  fi
+
+  echo "  --prefix=$ROOT/$PREFBASE \\" >> $TF
+  echo "  $BS" >> $TF
+
+  echo "script is:"
+  cat $TF
+
+  sh $TF
+  rm $TF
 }
 
 #......................................................................
@@ -1184,6 +1253,7 @@ alias run_arm64_emulator=run_prebuilts_arm64_emulator
 alias linuxpackagesearch='apt-cache search'
 alias displaylinuxpackageversion='apt-cache policy'
 alias showlinuxpackagecontents=show_dpkg_contents
+alias showinstalledpackages="apt list --installed"
 alias xtsmall='xterm -sb -fn 7x13 -sl 5000'
 alias xtmed='xterm -sb -fn 9x15 -sl 5000'
 alias xtbig='xterm -sb -fn 10x20 -sl 5000'

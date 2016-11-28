@@ -224,7 +224,8 @@ def usage(msgarg):
     -e    show commands being invoked
     -D    dry run (echo cmds but do not execute)
     -p    reuse/preserve bitcode files
-    -x O  pass option O to llc
+    -L X  pass option X to llc
+    -O Y  pass option Y to opt
 
     """ % os.path.basename(sys.argv[0])
   sys.exit(1)
@@ -257,17 +258,23 @@ def parse_args():
   # Walk through command line and locate --
   nargs = len(sys.argv)
   clangbin = None
+  foundc = False
   for ii in range(0, nargs):
     arg = sys.argv[ii]
     if arg == "--":
       clangbin = sys.argv[ii+1]
       for clarg in sys.argv[ii+2:]:
         flag_clang_opts.append(clarg)
+        if clarg == "-c":
+          foundc = True
         if clarg in passargs:
           flag_opt_opts.append(clarg)
           flag_llc_opts.append(clarg)
   if not clangbin:
     usage("malformed command line, no -- arg or no clang mentioned")
+  if not foundc:
+    u.warning("adding -c to clang invocation")
+    flag_clang_opts.append("-c")
 
   locate_binaries(clangbin)
 

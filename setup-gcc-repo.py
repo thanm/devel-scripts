@@ -131,8 +131,10 @@ def setup_prereqs(targ):
 def setup_build_dirs(targ):
   """Set up build_dirs."""
   root = os.getcwd()
-  if os.path.exists("build-binutils"):
-    u.verbose(0, "... binutils build dir '%s' already exists, skipping setup")
+  bb = "build-binutils"
+  if os.path.exists(bb):
+    u.verbose(0, "... binutils build dir '%s' already exists, "
+              "skipping setup" % bb)
   else:
     os.mkdir("build-binutils")
     dochdir("build-binutils")
@@ -142,7 +144,7 @@ def setup_build_dirs(targ):
     dochdir("..")
   for b, d in build_flavors.iteritems():
     if os.path.exists(b):
-      u.verbose(0, "... build dir '%s' already exists, skipping setup")
+      u.verbose(0, "... build dir '%s' already exists, skipping setup" % b)
       continue
     prefix = d["prefix"]
     extra = d["extra"]
@@ -158,7 +160,7 @@ def setup_build_dirs(targ):
 
 def setup_go(targ):
   """Set up go-specific stuff."""
-  if os.path.exists(targ):
+  if os.path.exists("gofrontend"):
     u.verbose(0, "... 'gofrontend' already exists, skipping clone")
     return
   docmd("git clone https://go.googlesource.com/gofrontend")
@@ -201,6 +203,10 @@ def perform_git():
     doscmd("git svn init %s" % url)
     doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
     doscmd("git svn rebase -l")
+  else:
+    dochdir(targ)
+    docmd("git checkout master")
+    dochdir("..")
   if flag_google:
     dochdir(targ)
     docmd("git branch google origin/google")

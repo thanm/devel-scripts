@@ -125,7 +125,8 @@ cmake_flavors = {
     "dbg": {"cmflav": None,
             "early": 1,
             "ccflav": "clang",
-            "extra": ("-DCMAKE_C_FLAGS=\'-g -O0\' "
+            "extra": ("-DCXX_SUPPORTS_COVERED_SWITCH_DEFAULT_FLAG=0 "
+                      "-DCMAKE_C_FLAGS=\'-g -O0\' "
                       "-DCMAKE_CXX_FLAGS=\'-g -O0\'")},
 
     "rel": {"cmflav": "Release",
