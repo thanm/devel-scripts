@@ -577,13 +577,58 @@ function run_git_meld_hash() {
   local HASH1=$1
   local HASH2=$2
   local extr=""
-  shift
+  local shift1=1
+  local shift2=1
 
-  if [ -z "$HASH2" ]; then
-    HASH2="${HASH1}^"
-    shift
+  # If no args at all, use HEAD as hash
+  if [ -z "$HASH1" ]; then
+    echo "No hash argument provided, using HEAD"
+    shift1=0
+    HASH1=HEAD
   fi
+
+  # Is first argument a file? If so, then use implicit HEAD
+  if [ -r $HASH1 ]; then
+    echo "No hash argument provided, using HEAD"
+    shift1=0
+    HASH1=HEAD
+  fi
+
+  # Check first hash
+  git log -1 --oneline $HASH1 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "Unknown/inscrutable hash $HASH1, can't proceed"
+    return
+  fi
+  shift $shift1
+
+  # Do we have a second arg?
+  if [ -z "$HASH2" ]; then
+    shift2=0
+    HASH2="${HASH1}^"
+    echo "No second argument provided, using $HASH2"
+  fi
+
+  # Is second argument a file and not a hash?
+  if [ -r $HASH2 ]; then
+    # Second arg is not a hash
+    shift2=0
+    HASH2="${HASH1}^"
+  else
+    # Second arg is not a file, so it must be a hash
+    git log -1 --oneline $HASH2 1> /dev/null 2>&1
+    if [ $? != 0 ]; then
+      echo "Unknown/inscrutable second hash $HASH2, can't proceed"
+      return
+    fi
+  fi
+  shift $shift2
+  
+  # Remaining args
   extr="$*"
+  if [ ! -z "$extr" ]; then
+    extr="-- $extr"
+  fi
 
   if [ -z "$GRDIFF" ]; then
     echo "error: please set GRDIFF to graphical diff tool."
@@ -1146,6 +1191,25 @@ function gccgotrunkconfig() {
 
 function gccgotrunkconfigdebug() {
   gccgotrunkconfig debug
+}
+
+function gccgo_build_and_test() {
+  echo "make -j20 all 1> berr.txt 2>&1"
+  make -j20 all 1> berr.txt 2>&1
+  if [ $? != 0 ]; then
+    echo "** build failed, skipping tests"
+    startemacs berr.txt
+    return
+  fi
+  echo "make -j20 check-go 1> terr.txt 2>&1"
+  make -j20 check-go 1> terr.txt 2>&1
+  if [ $? != 0 ]; then
+    echo "** test failed"
+    startemacs berr.txt terr.txt
+    return
+  fi
+  echo "result: PASS"
+  startemacs berr.txt terr.txt
 }
 
 function binutilstrunkconfig() {
