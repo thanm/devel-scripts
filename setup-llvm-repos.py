@@ -35,6 +35,9 @@ flag_snapshot = None
 # User
 flag_user = None
 
+# No BTRFS, just create single dir for subvol + snapshot
+flag_simplefs = False
+
 # Whether to do binutils build in new snapshot
 flag_binutils_build = True
 
@@ -184,7 +187,10 @@ def dochdir(thedir):
 def do_subvol_create():
   """Create new LLVM trunk subvolume."""
   here = os.getcwd()
-  docmd("snapshotutil.py mkvol %s" % flag_subvol)
+  if flag_simplefs:
+    docmd("mkdir %s" % flag_subvol)
+  else:
+    docmd("snapshotutil.py mkvol %s" % flag_subvol)
   dochdir(ssdroot)
   dochdir(flag_subvol)
   top = "%s/%s" % (ssdroot, flag_subvol)
@@ -297,7 +303,7 @@ def bootstrap_tooldir(flav):
   """Return tool directory for bootstrap build."""
   fd = cmake_flavors[flav]
   ccflav = fd["ccflav"]
-  rx = re.compile(r"^bootstrap\.(\S+)$")
+  rx = re.compile(r"^bootstrap=(\S+)$")
   m = rx.match(ccflav)
   if not m:
     return None
@@ -371,11 +377,11 @@ def emit_cmake_cmd_script(flav):
   """Emit/archive cmake cmds for flav."""
   bpath = ("LLVM_BINUTILS_INCDIR=%s/%s"
            "/binutils/include" % (ssdroot, flag_snapshot))
-  tup = cmake_flavors[flav]
   dyldsetting = select_dyld_library_path(flav)
   ccomp = select_compiler_flavor(flav)
   cmake_type = select_cmake_type(flav)
-  extra = tup[2]
+  fd = cmake_flavors[flav]
+  extra = fd["extra"]
   cmake_cmd = ("%s cmake -DCMAKE_BUILD_TYPE=%s -D%s %s %s -G Ninja "
                "../llvm" % (dyldsetting, cmake_type, bpath, ccomp, extra))
   if flag_dryrun:
@@ -503,7 +509,8 @@ def do_snapshot_create():
   """Create new LLVM trunk snapshot."""
   if flag_do_fetch:
     fetch_in_volume()
-  docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
+  if not flag_simplefs:
+    docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
   dochdir(ssdroot)
   dochdir(flag_snapshot)
   do_configure_binutils()
@@ -550,6 +557,7 @@ def usage(msgarg):
     -T    avoid setting up clang tools
     -J    run cmake steps serially (default is in parallel)
     -G    include llgo when setting up repo
+    -E    no BTRFS: use single dir for subvol + snapshot
     -F    run 'git fetch' or 'svn update' in subvolume
           before creating snapshot
 
@@ -566,7 +574,13 @@ def usage(msgarg):
 
       %s -n -r llvm-trunk -s llvm-gronk
 
-    """ % (me, me, me, me)
+    Example 3: create non-volume/non-snapshot dir 'llvm-trunk' and
+               initialize as both subvolume and snapshot
+
+      %s -E -r llvm-trunk
+
+
+    """ % (me, me, me, me, me)
   sys.exit(1)
 
 
@@ -576,10 +590,11 @@ def parse_args():
   global flag_scm_flavor, flag_cmake_type, flag_include_llgo
   global flag_do_fetch, flag_include_tools, flag_parallel
   global flag_binutils_build, flag_run_ninja, llvm_rw_svn, flag_user
+  global flag_simplefs
   global ssdroot
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "DGJS:FTXqdnNs:r:")
+    optlist, args = getopt.getopt(sys.argv[1:], "DGJS:FTXqdnENs:r:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -601,6 +616,8 @@ def parse_args():
       flag_dryrun = True
     elif opt == "-G":
       flag_include_llgo = True
+    elif opt == "-E":
+      flag_simplefs = True
     elif opt == "-F":
       flag_do_fetch = True
     elif opt == "-J":
@@ -620,6 +637,10 @@ def parse_args():
     usage("specify subvol name with -r")
   if flag_snapshot and not flag_subvol:
     usage("specify subvol name with -r")
+  if flag_simplefs and flag_snapshot:
+    usage("with -E supply only root volume with -r")
+  if flag_simplefs:
+    flag_snapshot = flag_subvol
   lines = u.docmdlines("whoami")
   flag_user = lines[0]
   if flag_user == "root":
@@ -636,7 +657,10 @@ def parse_args():
 
   # Set ssd root
   here = os.getcwd()
-  ssdroot = u.determine_btrfs_ssdroot(here)
+  if flag_simplefs:
+    ssdroot = os.getcwd()
+  else:
+    ssdroot = u.determine_btrfs_ssdroot(here)
 
 
 #
@@ -646,9 +670,15 @@ def parse_args():
 #
 parse_args()
 u.setdeflanglocale()
-if flag_snapshot:
+if flag_simplefs:
+  do_subvol_create()
   do_snapshot_create()
   do_snapshot_build()
+#
 else:
-  do_subvol_create()
+  if flag_snapshot:
+    do_snapshot_create()
+    do_snapshot_build()
+  else:
+    do_subvol_create()
 exit(0)

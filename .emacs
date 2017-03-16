@@ -1,4 +1,4 @@
-;;
+;
 ;; Load path
 ;;
 (add-to-list 'load-path (expand-file-name "~/lisp"))
