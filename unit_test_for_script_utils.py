@@ -140,6 +140,29 @@ class TestScriptUtilsMethods(unittest.TestCase):
     b5 = u.hr_size_to_bytes("44Z")
     self.assertTrue(b5 == None)
 
+  def test_trim_perf_report(self):
+    u.increment_verbosity()
+    # Write a file that needs trimming
+    outf = tempfile.NamedTemporaryFile(mode="w", delete=True)
+    try:
+      with open(outf.name, "w") as wf:
+        wf.write("foo   \n")
+    except IOError:
+      u.verbose(0, "open failed for %s" % outf.name)
+      self.assertTrue(1 == 0)
+    # trim it
+    u.trim_perf_report_file(outf.name)
+    # verify it
+    try:
+      with open(outf.name, "r") as rf:
+        lines = rf.readlines()
+        self.assertTrue(len(lines) == 1)
+        print "foo is: =%s=\n" % lines[0]
+        self.assertTrue(lines[0] == "foo\n")
+    except IOError:
+      u.verbose(0, "re-open failed for %s" % outf.name)
+      self.assertTrue(1 == 0)
+
 
 if __name__ == "__main__":
   unittest.main()

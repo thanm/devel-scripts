@@ -84,6 +84,10 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
     gccgo_invocation.append(driver)
     gccgo_invocation.extend(args)
     gccgo_location = curdir
+  outf.write("if [ $? != 0 ]; then\n")
+  outf.write("  echo 'error: %s compilation failed'\n" % " ".join(srcfiles))
+  outf.write("fi\n")
+
   if flag_single:
     return -1
   return 1
@@ -97,7 +101,7 @@ def perform_extract(inf, outf):
   reggcg = re.compile(r"^(\S+/bin/gccgo)\s+(.+)$")
   reggc = re.compile(r"^(\S+/compile)\s+(.+)$")
   regcd = re.compile(r"^cd (\S+)\s*$")
-  regar = re.compile(r"^ar rc .+$")
+  regar = re.compile(r"^ar .+$")
   regcp = re.compile(r"^cp (\S+) (\S+)$")
 
   outf.write("#!/bin/sh\n")
@@ -193,7 +197,6 @@ def setup_gccgo_gdb():
   rc = u.docmderrout(cmd, outfile, True)
   if rc != 0:
     u.warning("cmd failed: %s" % cmd)
-    u.error("output is in %s" % outfile)
   try:
     inf = open(outfile, "rb")
   except IOError as e:
@@ -314,6 +317,8 @@ def parse_args():
       flag_gccgo_gdb = arg
     elif opt == "-R":
       flag_relocate = arg
+      if flag_relocate[0] != '/':
+        flag_relocate = os.path.join(os.getcwd(), flag_relocate)
     elif opt == "-i":
       if flag_infile:
         usage("supply at most one -i option")

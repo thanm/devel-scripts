@@ -36,6 +36,33 @@ flag_5_branch = False
 # Add sub-repos for GO-related projects
 flag_dogo = False
 
+# Create build dirs
+flag_mkbuilds = True
+
+# clang format for gofrontend
+clang_format_contents = """
+BasedOnStyle: Google
+BreakBeforeBraces: GNU
+AlwaysBreakAfterReturnType: All
+AllowShortBlocksOnASingleLine: false
+UseTab: ForIndentation
+"""
+
+build_flavors = {
+
+    "build-gcc": {"extra": "",
+                  "prefix": "cross"},
+
+    "build-gcc-dbg": {"extra":
+                      "CFLAGS=\"-O0 -g\" CXXFLAGS=\"-O0 -g\" "
+                      "CFLAGS_FOR_BUILD=\"-O0 -g\" "
+                      "CXXFLAGS_FOR_BUILD=\"-O0 -g\"",
+                      "prefix": "cross"}
+}
+
+# Download prereqs
+flag_prereqs = False
+
 # Which flavor
 flag_flavor = None
 
@@ -90,12 +117,61 @@ def setup_binutils():
   docmd("git clone --depth 1 %s binutils" % binutils_git)
 
 
+def setup_prereqs(targ):
+  """Set up prerequistics."""
+  dochdir(targ)
+  if os.path.exists("gmp"):
+    u.verbose(0, "... 'gmp' already exists, skipping clone")
+    dochdir("..")
+    return
+  docmd("sh contrib/download_prerequisites")
+  dochdir("..")
+
+
+def setup_build_dirs(targ):
+  """Set up build_dirs."""
+  root = os.getcwd()
+  bb = "build-binutils"
+  if os.path.exists(bb):
+    u.verbose(0, "... binutils build dir '%s' already exists, "
+              "skipping setup" % bb)
+  else:
+    os.mkdir("build-binutils")
+    dochdir("build-binutils")
+    u.verbose(0, "... running configure in build dir 'build-binutils'")
+    doscmd("../binutils/configure --prefix=%s/binutils-cross "
+           "--enable-gold=default --enable-plugins" % root)
+    dochdir("..")
+  for b, d in build_flavors.iteritems():
+    if os.path.exists(b):
+      u.verbose(0, "... build dir '%s' already exists, skipping setup" % b)
+      continue
+    prefix = d["prefix"]
+    extra = d["extra"]
+    os.mkdir(b)
+    dochdir(b)
+    u.verbose(0, "... running configure in build dir '%s'" % b)
+    doscmd("../%s/configure --prefix=%s/%s "
+           "--enable-languages=c,c++,go --enable-libgo "
+           "--disable-bootstrap --with-ld=%s/binutils-cross/bin/ld.gold "
+           "%s" % (targ, root, prefix, root, extra))
+    dochdir("..")
+
+
 def setup_go(targ):
   """Set up go-specific stuff."""
   if os.path.exists("gofrontend"):
     u.verbose(0, "... 'gofrontend' already exists, skipping clone")
     return
   docmd("git clone https://go.googlesource.com/gofrontend")
+  dochdir("gofrontend")
+  try:
+    with open("./.clang-format", "w") as wf:
+      wf.write(clang_format_contents)
+      wf.write("\n")
+  except IOError:
+    u.error("open/write failed for .clang-format")
+  dochdir("..")
   dochdir(targ)
   docmd("rm -rf gcc/go/gofrontend")
   docmd("ln -s ../../../gofrontend/go gcc/go/gofrontend")
@@ -120,13 +196,17 @@ def perform_git():
       baseurl = "https://github.com/gcc-mirror/gcc"
   if os.path.exists(targ):
     u.verbose(0, "... path %s already exists, skipping clone" % targ)
-    return
+    return targ
   docmd("git clone %s %s" % (baseurl, targ))
   if flag_flavor == "git-svn":
     url = "http://gcc.gnu.org/svn/gcc/trunk"
     doscmd("git svn init %s" % url)
     doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
     doscmd("git svn rebase -l")
+  else:
+    dochdir(targ)
+    docmd("git checkout master")
+    dochdir("..")
   if flag_google:
     dochdir(targ)
     docmd("git branch google origin/google")
@@ -142,6 +222,7 @@ def perform_git():
     docmd("git checkout google")
     dochdir("..")
     docmd("ln -s google/gcc-4_9 gcc-4.9")
+  return targ
 
 
 def perform_svn():
@@ -165,9 +246,13 @@ def perform():
   if flag_flavor == "svn":
     perform_svn()
   else:
-    perform_git()
+    targ = perform_git()
     if flag_dogo:
       setup_go("gcc-trunk")
+    if flag_prereqs:
+      setup_prereqs("gcc-trunk")
+    if flag_mkbuilds:
+      setup_build_dirs(targ)
   setup_binutils()
 
 
@@ -187,9 +272,11 @@ def usage(msgarg):
     -f F  repository flavor F. Can be one of: svn|git|git-svn
     -M    use github mirrors where possible to speed things up
     -G    add sub-repos for go-related projects
+    -P    download prerequisites for gcc build (gmp, mpcr, etc)
     -g    select google 4_9 branch
     -b    select vanilla 4_9 branch
     -B    select vanilla 5 branch
+    -X    do not create build dirs
 
     Example 1: setup gcc git repo off google/4_9 branch
 
@@ -203,10 +290,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_google, flag_flavor
   global flag_show_output, flag_49_branch, flag_5_branch
-  global flag_dogo, flag_use_mirrors
+  global flag_dogo, flag_use_mirrors, flag_prereqs, flag_mkbuilds
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dbBeDGMgsf:")
+    optlist, args = getopt.getopt(sys.argv[1:], "dbBeDPGMBXgsf:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -220,12 +307,16 @@ def parse_args():
       flag_google = True
     elif opt == "-G":
       flag_dogo = True
+    elif opt == "-P":
+      flag_prereqs = True
     elif opt == "-M":
       flag_use_mirrors = True
     elif opt == "-b":
       flag_49_branch = True
     elif opt == "-B":
       flag_5_branch = True
+    elif opt == "-X":
+      flag_mkbuilds = False
     elif opt == "-s":
       flag_show_output = True
     elif opt == "-f":

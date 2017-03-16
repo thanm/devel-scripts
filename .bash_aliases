@@ -9,7 +9,11 @@ startemacsclient() {
 }
 
 startemacs() {
-  emacs $* &
+  local em="$EDITOR"
+  if [ -z "$EDITOR" ]; then
+    em=emacs
+  fi
+  ${em} $* &
   disown $!
 }
 
@@ -331,7 +335,7 @@ function llvmroot() {
   local HERE=`pwd`
   local CUR=$HERE
   while [ $CUR != "/" ]; do
-    if [ -d $CUR/llvm -a -d $CUR/binutils ]; then
+    if [ -d $CUR/llvm -a -d $CUR/llvm/tools ]; then
       echo $CUR
       return 0
     fi
@@ -341,10 +345,10 @@ function llvmroot() {
   return 1
 }
 
-function llvm-genfiles() {
+function llvm-genfiles-flavor() {
   local S="$1"
   local PR="-print${S}"
-  local SKIPARGS="-name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
+  local SKIPARGS="-path llvm/tools/clang/tools/extra/test -prune -o -path llvm/tools/clang/test -prune -o -path llvm/projects/compiler-rt/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
   local CFINDARGS="$SKIPARGS \
     -name *.inc $PR -o \
     -name *.cc $PR -o \
@@ -353,11 +357,10 @@ function llvm-genfiles() {
     -name *.h $PR"
   local MFINDARGS="$SKIPARGS \
     -name CMakeLists.txt $PR -o \
-    -name *.cmake $PR -o \
-    -name LLVMBuild.txt $PR -o \
-    -name Makefile $PR"
+    -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
+  local BUILDDIR=build.dbg
 
   if [ "$S" = "0" ]; then
     DOFILT=cat
@@ -369,11 +372,18 @@ function llvm-genfiles() {
     echo "... running find in $LLVMROOT"
     rm -f cxxfiles${S}.txt mkfiles${S}.txt
     pushd $LLVMROOT 1> /dev/null
-    find llvm build.opt $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
-    find llvm build.opt $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
+    echo "find llvm $BUILDDIR $CFINDARGS | $DOFILT"
+    find llvm $BUILDDIR $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
+    find llvm $BUILDDIR $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
     popd 1> /dev/null
     echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
   fi
+}
+
+function llvm-genfiles() {
+  llvm-genfiles-flavor 0 &
+  llvm-genfiles-flavor &
+  wait
 }
 
 function llvm-gentags() {
@@ -386,6 +396,7 @@ function llvm-gentags() {
     rm -f GPATH GTAGS GRTAGS GSYMS
     echo "... running gtags in $LLVMROOT"
     gtags --file cxxfiles.txt
+    rm -f cxxfiles0.txt mkfiles0.txt
     popd 1> /dev/null
     echo "... gtags created in $LLVMROOT"
   fi
@@ -397,18 +408,17 @@ function llvm-mkid() {
     echo "unable to local llvm dir and build dir -- no action taken"
   else
     llvm-genfiles
-    llvm-genfiles 0
     pushd $LLVMROOT 1> /dev/null
     rm -f ID
     echo "... running mkid in $LLVMROOT"
     mkid --files0-from cxxfiles0.txt
-    rm -f cxxfiles0.txt
+    rm -f cxxfiles0.txt mkfiles0.txt
     popd 1> /dev/null
     echo "... ID file created in $LLVMROOT"
   fi
 }
 
-function gcc-genfiles() {
+function gcc-genfiles-single() {
   local S="$1"
   local PR="-print${S}"
 
@@ -422,18 +432,20 @@ function gcc-genfiles() {
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
+    -name "*.hpp" ${PR} -o \
     -name "*.h" ${PR} > cxxfiles${S}.txt
   echo "... generated cxxfiles${S}.txt"
 }
 
 function gcc-gentags() {
-  gcc-genfiles
+  gcc-genfiles-single
   rm -f GPATH GTAGS GRTAGS GSYMS
   cat cxxfiles.txt | gtags --file -
 }
 
-function gccgo-mkid() {
-  local PR="-print0"
+function gccgo-genfiles() {
+  local S="$1"
+  local PR="-print${S}"
 
   # Must be run from root
   if [ ! -d ./gofrontend ]; then
@@ -454,27 +466,57 @@ function gccgo-mkid() {
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} > cxxfiles0.txt
-  find ./gofrontend/go \
+    -name "*.h" ${PR} > cxxfiles${S}.txt
+  find ./gofrontend \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} >> cxxfiles0.txt
-  find ./gcc-trunk/lipcpp \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libcpp \
     -name "*.cc" ${PR} -o \
     -name "*.c" ${PR} -o \
     -name "*.cpp" ${PR} -o \
-    -name "*.h" ${PR} >> cxxfiles0.txt
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libbacktrace \
+    -name "*.c" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libgcc \
+    -name "*.c" ${PR} -o \
+    -name "*.inc" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/libffi \
+    -name "*.c" ${PR} -o \
+    -name "*.inc" ${PR} -o \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+  find ./gcc-trunk/include \
+    -name "*.h" ${PR} >> cxxfiles${S}.txt
+}
 
-  echo "... generated cxxfiles0.txt"
+function gccgo-mkid() {
+
+  # Must be run from root
+  if [ ! -d ./gofrontend ]; then
+     echo "unable to locate gofrontend, can't continue."
+     return
+  fi
+  if [ ! -d ./gcc-trunk/gcc ]; then
+     echo "unable to locate ./gcc-trunk/gcc, can't continue."
+     return
+  fi
+
+  echo "... generated cxxfiles"
+  gccgo-genfiles 0 &
+  gccgo-genfiles &
+  wait
+
   echo "... running mkid"
   mkid --files0-from cxxfiles0.txt
   echo "... removing cxxfiles0.txt"
-  rm -f cxxfiles0.txt
+  rm -f cxxfiles0.txt mkfiles0.txt
 }
 
 function gcc-mkid() {
-  gcc-genfiles 0
+  gcc-genfiles-single 0
   mkid --files0-from cxxfiles0.txt
   rm -f cxxfiles0.txt
 }
@@ -597,6 +639,24 @@ function run_git_show_local_branch_status() {
 
   echo git diff --name-status master  $WORKB
   git diff --name-status master  $WORKB
+}
+
+function set_git_upstream_tracking_branch_to_master() {
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+
+  # Determine work branch
+  if [ -z "$WORKB" ]; then
+    echo "unable to determine work branch, output of 'git branch' is:"
+    git branch
+    return
+  fi
+  if [ "$WORKB" = "master" ]; then
+    echo "current branch is master, can't set tracking"
+    return
+  fi
+
+  echo git branch --set-upstream-to=origin/master
+  git branch --set-upstream-to=origin/master
 }
 
 function prependToPathIfNotAlreadyPresent () {
@@ -789,6 +849,8 @@ function setgoroot() {
     warngodirs $d
   fi
 
+  setgobootstrap
+
   echo "MYGOROOT set to $d"
   export MYGOROOT=$d
   prependToPathIfNotAlreadyPresent $MYGOROOT/bin
@@ -812,6 +874,31 @@ function unsetgoroot() {
 
   echo "Unsetting MYGOROOT"
   unset MYGOROOT
+  echo "Unsetting GOROOT_BOOTSTRAP"
+  unset GOROOT_BOOTSTRAP
+  
+}
+
+function setgobootstrap() {
+  local d="$1"
+
+  if [ -z "$d" ]; then
+    # Infer bootstrap based on current go
+    d=`which go`
+    if [ -z "$d" ]; then
+      echo "error: no 'go' in PATH, can't infer GOROOT_BOOTSTRAP"
+      return
+    fi
+    d=`dirname $d`
+    d=`dirname $d`
+  fi
+
+  if [ ! -x "$d/bin/go" ]; then
+    echo "error: can't find bin/go in $d, unable to update GOROOT_BOOTSTRAP"
+    return
+  fi
+  export GOROOT_BOOTSTRAP=$d
+  echo "GOROOT_BOOTSTRAP set to $d"
 }
 
 function setgopath() {
@@ -840,10 +927,8 @@ function setgopath() {
 
   echo "GOPATH set to $d"
   export GOPATH=$d
-  export GOROOT_BOOTSTRAP=/usr/lib/google-golang
 
   appendToPathIfNotAlreadyPresent $GOPATH/bin
-  echo "PATH is now: $PATH"
 }
 
 function unsetgopath() {
@@ -941,6 +1026,186 @@ function run_mp_rsync() {
   popd
 }
 
+function run_clang_format_gnustyle() {
+  local CPPFILE="$1"
+  local INDFILE="${CPPFILE}.ind"
+
+  if [ -z "$CPPFILE" ]; then
+    echo "** supply single C++ filename as argument"
+    return
+  fi
+  touch $INDFILE
+  if [ $? != 0 ]; then
+    echo "** untable to write $INDFILE"
+    return
+  fi
+
+  clang-format -style="{BasedOnStyle: Google, BreakBeforeBraces: GNU, AlwaysBreakAfterReturnType: All, AllowShortBlocksOnASingleLine: false, UseTab: ForIndentation}" < $CPPFILE > $INDFILE
+  echo "indented version of $CPPFILE written to $INDFILE"
+}
+
+function cdgoroot() {
+  local GR=`go env GOROOT`
+  echo pushd $GR
+  pushd $GR
+}
+
+function cdgopath() {
+  local GP=`go env GOPATH`
+  echo pushd $GP
+  pushd $GP
+}
+
+function gccgobinutilsconfig() {
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+
+  if [ ! -d ../binutils ]; then
+    echo "** error: no ../binutils dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  mkdir -p $ROOT/binutils-cross
+  CMD="../binutils/configure --prefix=$ROOT/binutils-cross --disable-multilib --enable-gold --enable-plugins"
+
+  echo running $CMD
+  $CMD
+}
+
+function gccgotrunkconfig() {
+  local ARGS="$*"
+  local ARG=""
+  local ARGOPT=""
+  local BS="--disable-bootstrap"
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+  local PREFBASE=cross
+  local TF=$(mktemp)
+  local X=
+  local Y=
+
+  if [ ! -d ../gofrontend ]; then
+    echo "** error: no ../gofrontend dir"
+    return
+  fi
+  if [ ! -d ../gcc-trunk ]; then
+    echo "** error: no ../gcc-trunk dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  echo "#!/bin/sh" > $TF
+  echo "set -x" >> $TF
+  echo "../gcc-trunk/configure \\" >> $TF
+  echo "  --enable-languages=c,c++,go \\" >> $TF
+  echo "  --enable-libgo \\" >> $TF
+  echo "  --with-ld=$ROOT/binutils-cross/bin/ld.gold \\" >> $TF
+    
+  if [ ! -z "$ARGS" ]; then
+    for ARG in $ARGS
+    do
+      X=$(echo $ARG | tr '=' 'x')
+      if [ "$X" != "$ARG" ]; then
+         ARGOPT=$(echo $ARG | cut -f2 -d=)
+         ARG=$(echo $ARG | cut -f1 -d=)
+      fi
+      echo ARG is $ARG
+      if [ "z${ARG}" = "zbootstrap" ]; then
+        BS=""
+      elif [ "z${ARG}" = "zprefix" ]; then
+        PREFBASE=$ARGOPT
+      elif [ "z${ARG}" = "zdebug" ]; then
+        echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      else
+        echo "*** error -- unknown option/argument $ARG"
+        return
+      fi
+    done
+  fi
+
+  echo "  --prefix=$ROOT/$PREFBASE \\" >> $TF
+  echo "  $BS" >> $TF
+
+  echo "script is:"
+  cat $TF
+
+  sh $TF
+  rm $TF
+}
+
+function gccgotrunkconfigdebug() {
+  gccgotrunkconfig debug
+}
+
+function binutilstrunkconfig() {
+  local ARGS="$*"
+  local ARG=""
+  local ARGOPT=""
+  local CMD=""
+  local HERE=""
+  local ROOT=""
+  local PREFBASE=binutils-cross
+  local TF=$(mktemp)
+  local X=
+  local Y=
+
+  if [ ! -d ../binutils ]; then
+    echo "** error: no ../binutils dir"
+    return
+  fi
+
+  HERE=`pwd`
+  cd ..
+  ROOT=`pwd`
+  cd $HERE
+
+  echo "#!/bin/sh" > $TF
+  echo "set -x" >> $TF
+  echo "../binutils/configure \\" >> $TF
+  echo "  --enable-gold=default \\" >> $TF
+  echo "  --enable-plugins  \\" >> $TF
+    
+  if [ ! -z "$ARGS" ]; then
+    for ARG in $ARGS
+    do
+      X=$(echo $ARG | tr '=' 'x')
+      if [ "$X" != "$ARG" ]; then
+         ARGOPT=$(echo $ARG | cut -f2 -d=)
+         ARG=$(echo $ARG | cut -f1 -d=)
+      fi
+      echo ARG is $ARG
+      if [ "z${ARG}" = "zprefix" ]; then
+        PREFBASE=$ARGOPT
+      elif [ "z${ARG}" = "zdebug" ]; then
+        echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      else
+        echo "*** error -- unknown option/argument $ARG"
+        return
+      fi
+    done
+  fi
+
+  echo "  --prefix=$ROOT/$PREFBASE \\" >> $TF
+  echo "  $BS" >> $TF
+
+  echo "script is:"
+  cat $TF
+
+  sh $TF
+  rm $TF
+}
+
 #......................................................................
 
 alias hh='history 25'
@@ -960,7 +1225,7 @@ alias show_image=eog
 alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
-alias gcctrunkconfig="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-experiment/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold"
+alias gcctrunkconfigmaster="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-master/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk-master/binutils-cross/bin/ld.gold"
 alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
 
 
@@ -989,6 +1254,7 @@ alias run_arm64_emulator=run_prebuilts_arm64_emulator
 alias linuxpackagesearch='apt-cache search'
 alias displaylinuxpackageversion='apt-cache policy'
 alias showlinuxpackagecontents=show_dpkg_contents
+alias showinstalledpackages="apt list --installed"
 alias xtsmall='xterm -sb -fn 7x13 -sl 5000'
 alias xtmed='xterm -sb -fn 9x15 -sl 5000'
 alias xtbig='xterm -sb -fn 10x20 -sl 5000'
@@ -1011,6 +1277,8 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias glo="git log --oneline"
 alias glf='git log --name-only'
+alias gld='git log -p'
+alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -t ${GRDIFF} -y'
 alias gitmeldc='git difftool --cached -t ${GRDIFF} -y'
@@ -1051,6 +1319,3 @@ alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=ma
 
 # zgrviewer
 alias zgrviewit=run_zgrviewer
-
-# temporary
-alias ssdgosetup=select_ssd_go_repo

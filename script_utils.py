@@ -276,3 +276,26 @@ def hr_size_to_bytes(sz):
   fac = factors[facs]
   nb = int(val * fac)
   return nb
+
+
+def trim_perf_report_file(infile):
+  """Trim trailing spaces from lines in perf report."""
+  verbose(1, "trim: reading " + infile)
+  try:
+    f = open(infile, "r")
+  except IOError:
+    warning("unable to open file %s for reading" % infile)
+    return 1
+  lines = f.readlines()
+  f.close()
+  verbose(1, "trim: rewriting " + infile)
+  try:
+    ft = open(infile, "w")
+  except IOError:
+    warning("unable to open file %s for rewriting" % infile)
+    return 1
+  for line in lines:
+    sline = line.rstrip()
+    ft.write(sline + "\n")
+  ft.close()
+  return 0
