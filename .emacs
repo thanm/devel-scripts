@@ -99,7 +99,7 @@
 ;;
 ;; Bell
 ;;
-(setq visible-bell 1)
+;; (setq visible-bell 1)
 ;;
 ;;(setq sun-esc-bracket t)
 ;;
