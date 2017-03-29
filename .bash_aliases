@@ -415,6 +415,9 @@ function llvm-mkid() {
     rm -f cxxfiles0.txt mkfiles0.txt
     popd 1> /dev/null
     echo "... ID file created in $LLVMROOT"
+    find llvm -name "*.def" > deffiles.txt
+    find llvm -name "*.td" > tdfiles.txt
+    find llvm -name "*.ll" > llfiles.txt
   fi
 }
 
