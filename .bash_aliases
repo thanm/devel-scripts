@@ -460,6 +460,12 @@ function gccgo-genfiles() {
      return
   fi
 
+  # Gen file lists in gofrontend
+  cd gofrontend
+  find . -name .git -prune -o -type f -print > allfiles.txt
+  find . -name "*.go" -print > gofiles.txt
+  cd ..
+  
   # Everything in gcc, libcpp, and gofrontend
   find ./gcc-trunk/gcc \
     -name testsuite -prune -o \
