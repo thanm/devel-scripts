@@ -154,7 +154,8 @@ def docmdinout(cmd, infile, outfile):
         warning("output from failing command:")
         subprocess.call(["cat", cmdtf.name])
         return 1
-      return 0
+  verbose(2, "+ finished: %s < %s > %s" % (cmd, infile, outfile))
+  return 0
 
 
 # invoke command, returning array of lines read from it

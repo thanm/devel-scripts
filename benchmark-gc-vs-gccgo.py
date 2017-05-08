@@ -129,6 +129,8 @@ interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
                       "ssa.liveValues.isra.197"),
                      (None, "ssa.$thunk9")]
 
+# If filled in, then set GOMAXPROCS to this value
+flag_gomaxprocs = None
 
 # Count of lines in ppo file
 ppolines = 0
@@ -404,7 +406,7 @@ def benchprep(repo, variant):
   return tup
 
 
-def benchmark(repo, runscript, wrapcmd, tag, variant):
+def benchmark(repo, runscript, wrapcmd, tag):
   """Run benchmark build."""
   f = "bench.%s.%s.sh" % (repo, tag)
   if os.path.exists(f):
@@ -413,8 +415,9 @@ def benchmark(repo, runscript, wrapcmd, tag, variant):
     with open(f, "w") as wf:
       wf.write("#/bin/sh\n")
       wf.write("set -x\n")
-      if variant == "gccgo":
-        wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % gccgo_install)
+      if flag_gomaxprocs:
+        wf.write("export GOMAXPROCS=%s\n" % flag_gomaxprocs)
+      wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % gccgo_install)
       wf.write("cd %s/src/cmd/compile\n" % repo)
       wf.write("%s sh %s\n" % (wrapcmd, runscript))
       wf.write("if [ $? != 0 ]; then\n")
@@ -525,14 +528,14 @@ def process_variant(variant, ppo):
   work = None
   if not flag_skip_benchrun:
     work, runit = benchprep(build_dir, variant)
-    benchmark(build_dir, runit, "/usr/bin/time", "tim", variant)
+    benchmark(build_dir, runit, "/usr/bin/time", "tim")
     perfwrap = "perf record -o %s/perf.data.%s" % (here, variant)
-    benchmark(build_dir, runit, perfwrap, "perf", variant)
+    benchmark(build_dir, runit, perfwrap, "perf")
     if 1 == 0:
       # need to build libgo.so with -fno-omit-frame-pointer
       # before doing this
       gperfwrap = "perf record -g -o %s/perf.data.cg.%s" % (here, variant)
-      benchmark(build_dir, runit, gperfwrap, "cgperf", variant)
+      benchmark(build_dir, runit, gperfwrap, "cgperf")
   # report
   report_file = "rep.%s.txt" % variant
   docmdout("perf report -i perf.data.%s" % variant, report_file)
@@ -640,6 +643,7 @@ def usage(msgarg):
     -H    emit HTML for assembly dumps and reports
     -g X  benchmark the go compiler drawn from go root X
     -G X  benchmark the gccgo compiler drawn from gccgo root X
+    -M N  set GOMAXPROCS to N prior to bench run
     -L    add experimental llgo variant (currently non-working)
     -P    preserve 'go build' workdirs
 
@@ -673,9 +677,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_skip_bootstrap, flag_skip_benchrun
   global flag_keepwork, go_install, gccgo_install, flag_genhtml
+  global flag_gomaxprocs
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBNDHLPg:G:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBNM:DHLPg:G:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -700,6 +705,9 @@ def parse_args():
       flag_keepwork = True
     elif opt == "-H":
       flag_genhtml = True
+    elif opt == "-M":
+      u.verbose(1, "setting GOMAXPROCS to %s on bench run" % arg)
+      flag_gomaxprocs = arg
     elif opt == "-G":
       u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg

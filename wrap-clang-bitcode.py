@@ -263,7 +263,16 @@ def parse_args():
     arg = sys.argv[ii]
     if arg == "--":
       clangbin = sys.argv[ii+1]
+      skipnext = False
       for clarg in sys.argv[ii+2:]:
+        if skipnext:
+          skipnext = False
+          continue
+        if clarg == "-o" or clarg == "-MT" or clarg == "-MF":
+          skipnext = True
+          continue
+        if clarg == "-MD":
+          continue
         flag_clang_opts.append(clarg)
         if clarg == "-c":
           foundc = True

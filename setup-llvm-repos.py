@@ -35,9 +35,6 @@ flag_snapshot = None
 # User
 flag_user = None
 
-# No BTRFS, just create single dir for subvol + snapshot
-flag_simplefs = False
-
 # Whether to do binutils build in new snapshot
 flag_binutils_build = True
 
@@ -68,6 +65,9 @@ flag_include_tools = True
 # Whether to include llgo in repo
 flag_include_llgo = False
 
+# Whether to include polly in repo
+flag_include_polly = False
+
 # Run cmake cmds in parallel
 flag_parallel = True
 
@@ -84,6 +84,7 @@ clang_git = "http://llvm.org/git/clang.git"
 clang_tools_git = "http://llvm.org/git/clang-tools-extra.git"
 compiler_rt_git = "http://llvm.org/git/compiler-rt.git"
 llgo_git = "http://llvm.org/git/llgo.git"
+polly_git = "http://llvm.org/git/polly.git"
 
 # Clang compilers. Must be full path.
 clang_c_compiler = "/usr/bin/clang-3.6"
@@ -145,12 +146,6 @@ cmake_flavors = {
     "clbootstrap.rel": {"cmflav": "Release",
                         "ccflav": "gcc",
                         "extra": "-DCLANG_ENABLE_BOOTSTRAP=On"},
-
-    "bootstrap.reldb": {"cmflav": "RelWithDebInfo",
-                        "ccflav": "bootstrap=build.opt",
-                        "extra": ("-DLLVM_BUILD_EXAMPLES=Off "
-                                  "-DCOMPILER_RT_BUILD_BUILTINS=Off ")}
-
 }
 
 
@@ -184,13 +179,25 @@ def dochdir(thedir):
     u.error("chdir failed: %s" % err)
 
 
+def do_llvmtool_create(top, tool, gitloc):
+  """Create new sub-repo within llvm/tools."""
+  dochdir("%s/llvm/tools" % top)
+  if flag_scm_flavor == "git":
+    doscmd("svn co %s/llgo/trunk %s" % (llvm_ro_svn, tool))
+  else:
+    doscmd("git clone %s %s" % (gitloc, tool))
+    if flag_scm_flavor == "git-svn":
+      dochdir("%s" % tool)
+      doscmd("git svn init %s/%s/trunk "
+             "--username=%s" % (llvm_git_on_svn, tool, flag_user))
+      doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
+      doscmd("git svn rebase -l")
+
+
 def do_subvol_create():
   """Create new LLVM trunk subvolume."""
   here = os.getcwd()
-  if flag_simplefs:
-    docmd("mkdir %s" % flag_subvol)
-  else:
-    docmd("snapshotutil.py mkvol %s" % flag_subvol)
+  docmd("snapshotutil.py mkvol %s" % flag_subvol)
   dochdir(ssdroot)
   dochdir(flag_subvol)
   top = "%s/%s" % (ssdroot, flag_subvol)
@@ -236,17 +243,11 @@ def do_subvol_create():
 
   # Now llgo
   if flag_include_llgo:
-    dochdir("%s/llvm/tools" % top)
-    if flag_scm_flavor == "git":
-      doscmd("svn co %s/llgo/trunk llgo" % llvm_ro_svn)
-    else:
-      doscmd("git clone %s llgo" % llgo_git)
-      if flag_scm_flavor == "git-svn":
-        dochdir("llgo")
-        doscmd("git svn init %s/llgo/trunk "
-               "--username=%s" % (llvm_git_on_svn, flag_user))
-        doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
-        doscmd("git svn rebase -l")
+    do_llvmtool_create(top, "llgo", llgo_git)
+
+  # Now polly
+  if flag_include_polly:
+    do_llvmtool_create(top, "polly", polly_git)
 
   # Now compiler-rt
   dochdir("%s/llvm/projects" % top)
@@ -303,7 +304,7 @@ def bootstrap_tooldir(flav):
   """Return tool directory for bootstrap build."""
   fd = cmake_flavors[flav]
   ccflav = fd["ccflav"]
-  rx = re.compile(r"^bootstrap=(\S+)$")
+  rx = re.compile(r"^bootstrap\.(\S+)$")
   m = rx.match(ccflav)
   if not m:
     return None
@@ -377,11 +378,11 @@ def emit_cmake_cmd_script(flav):
   """Emit/archive cmake cmds for flav."""
   bpath = ("LLVM_BINUTILS_INCDIR=%s/%s"
            "/binutils/include" % (ssdroot, flag_snapshot))
+  u.verbose(0, "...kicking off cmake for %s in parallel..." % flav)
   dyldsetting = select_dyld_library_path(flav)
   ccomp = select_compiler_flavor(flav)
   cmake_type = select_cmake_type(flav)
-  fd = cmake_flavors[flav]
-  extra = fd["extra"]
+  extra = select_cmake_extras(flav)
   cmake_cmd = ("%s cmake -DCMAKE_BUILD_TYPE=%s -D%s %s %s -G Ninja "
                "../llvm" % (dyldsetting, cmake_type, bpath, ccomp, extra))
   if flag_dryrun:
@@ -509,8 +510,7 @@ def do_snapshot_create():
   """Create new LLVM trunk snapshot."""
   if flag_do_fetch:
     fetch_in_volume()
-  if not flag_simplefs:
-    docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
+  docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
   dochdir(ssdroot)
   dochdir(flag_snapshot)
   do_configure_binutils()
@@ -557,7 +557,7 @@ def usage(msgarg):
     -T    avoid setting up clang tools
     -J    run cmake steps serially (default is in parallel)
     -G    include llgo when setting up repo
-    -E    no BTRFS: use single dir for subvol + snapshot
+    -P    include polly when setting up repo
     -F    run 'git fetch' or 'svn update' in subvolume
           before creating snapshot
 
@@ -574,13 +574,7 @@ def usage(msgarg):
 
       %s -n -r llvm-trunk -s llvm-gronk
 
-    Example 3: create non-volume/non-snapshot dir 'llvm-trunk' and
-               initialize as both subvolume and snapshot
-
-      %s -E -r llvm-trunk
-
-
-    """ % (me, me, me, me, me)
+    """ % (me, me, me, me)
   sys.exit(1)
 
 
@@ -588,13 +582,12 @@ def parse_args():
   """Command line argument parsing."""
   global flag_subvol, flag_snapshot, flag_echo, flag_dryrun
   global flag_scm_flavor, flag_cmake_type, flag_include_llgo
-  global flag_do_fetch, flag_include_tools, flag_parallel
+  global flag_do_fetch, flag_include_tools, flag_include_polly, flag_parallel
   global flag_binutils_build, flag_run_ninja, llvm_rw_svn, flag_user
-  global flag_simplefs
   global ssdroot
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "DGJS:FTXqdnENs:r:")
+    optlist, args = getopt.getopt(sys.argv[1:], "DPGJS:FTXqdnNs:r:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -616,8 +609,8 @@ def parse_args():
       flag_dryrun = True
     elif opt == "-G":
       flag_include_llgo = True
-    elif opt == "-E":
-      flag_simplefs = True
+    elif opt == "-P":
+      flag_include_polly = True
     elif opt == "-F":
       flag_do_fetch = True
     elif opt == "-J":
@@ -637,10 +630,6 @@ def parse_args():
     usage("specify subvol name with -r")
   if flag_snapshot and not flag_subvol:
     usage("specify subvol name with -r")
-  if flag_simplefs and flag_snapshot:
-    usage("with -E supply only root volume with -r")
-  if flag_simplefs:
-    flag_snapshot = flag_subvol
   lines = u.docmdlines("whoami")
   flag_user = lines[0]
   if flag_user == "root":
@@ -657,10 +646,7 @@ def parse_args():
 
   # Set ssd root
   here = os.getcwd()
-  if flag_simplefs:
-    ssdroot = os.getcwd()
-  else:
-    ssdroot = u.determine_btrfs_ssdroot(here)
+  ssdroot = u.determine_btrfs_ssdroot(here)
 
 
 #
@@ -670,15 +656,9 @@ def parse_args():
 #
 parse_args()
 u.setdeflanglocale()
-if flag_simplefs:
-  do_subvol_create()
+if flag_snapshot:
   do_snapshot_create()
   do_snapshot_build()
-#
 else:
-  if flag_snapshot:
-    do_snapshot_create()
-    do_snapshot_build()
-  else:
-    do_subvol_create()
+  do_subvol_create()
 exit(0)
