@@ -38,6 +38,9 @@ flag_user = None
 # Whether to do binutils build in new snapshot
 flag_binutils_build = True
 
+# Whether configure in snapshot/subvol
+flag_configure = False
+
 # Whether to run ninja in new snapshot
 flag_run_ninja = True
 
@@ -70,6 +73,9 @@ flag_include_polly = False
 
 # Run cmake cmds in parallel
 flag_parallel = True
+
+# Place from which to copy binutils
+flag_binutils_location = None
 
 # SSD root
 ssdroot = None
@@ -118,7 +124,7 @@ cov_cmake_ccomp = ""
 # - coverage testing works better with installed "cc"
 # - release build is done with gcc
 #
-legal_tags = {"cmflav": 1, "ccflav": 1, "extra": 1, "early":1}
+legal_tags = {"cmflav": 1, "ccflav": 1, "extra": 1, "early": 1}
 cmake_flavors = {
 
     "opt": {"cmflav": None,
@@ -195,7 +201,11 @@ def do_llvmtool_create(top, tool, gitloc):
 
 
 def do_subvol_create():
-  """Create new LLVM trunk subvolume."""
+  """Create new LLVM trunk subvolume if needed."""
+  sv = "%s/%s" % (ssdroot, flag_subvol)
+  if os.path.exists(sv):
+    u.verbose(1, "subvolume %s already exists, skipping creation" % sv)
+    return
   here = os.getcwd()
   docmd("snapshotutil.py mkvol %s" % flag_subvol)
   dochdir(ssdroot)
@@ -262,10 +272,13 @@ def do_subvol_create():
       doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
       doscmd("git svn rebase -l")
 
-  # Now binutils.
-  # consider adding --depth 1 if size proves to be a problem
+  # Now binutils. NB: git clone can be incredibly slow sometimes.
+  # Consider adding --depth 1 maybe?
   dochdir(top)
-  doscmd("git clone %s binutils" % binutils_git)
+  if flag_binutils_location:
+    doscmd("cp -r %s binutils" % flag_binutils_location)
+  else:
+    doscmd("git clone %s binutils" % binutils_git)
   dochdir(here)
 
 
@@ -374,10 +387,10 @@ def select_compiler_flavor(flav):
                                        build_cxx_compiler))
 
 
-def emit_cmake_cmd_script(flav):
+def emit_cmake_cmd_script(flav, targdir):
   """Emit/archive cmake cmds for flav."""
   bpath = ("LLVM_BINUTILS_INCDIR=%s/%s"
-           "/binutils/include" % (ssdroot, flag_snapshot))
+           "/binutils/include" % (ssdroot, targdir))
   u.verbose(0, "...kicking off cmake for %s in parallel..." % flav)
   dyldsetting = select_dyld_library_path(flav)
   ccomp = select_compiler_flavor(flav)
@@ -397,9 +410,9 @@ def emit_cmake_cmd_script(flav):
   return cmake_cmd
 
 
-def emit_rebuild_scripts(flav):
+def emit_rebuild_scripts(flav, targdir):
   """Emit top-level clean, rebuild scripts."""
-  bpath = "%s/%s/build.%s" % (ssdroot, flag_snapshot, flav)
+  bpath = "%s/%s/build.%s" % (ssdroot, targdir, flav)
   if flag_dryrun:
     print "+++ archiving clean + build cmds"
     return
@@ -451,8 +464,10 @@ def emit_rebuild_scripts(flav):
     u.error("open/write failed for .cmake_cmd")
 
 
-def do_configure_binutils():
+def do_configure_binutils(targdir):
   """Create binutils bin dir and run configure."""
+  dochdir(ssdroot)
+  dochdir(targdir)
   docmd("mkdir binutils-build")
   dochdir("binutils-build")
   doscmd("../binutils/configure --enable-gold "
@@ -474,8 +489,10 @@ def run_cmake(builddir, cmake_cmd):
   return 0
 
 
-def do_setup_cmake():
+def do_setup_cmake(targdir):
   """Run cmake in each of the bin dirs."""
+  dochdir(ssdroot)
+  dochdir(targdir)
   pool = None
   if flag_parallel:
     nworkers = len(cmake_flavors)
@@ -484,11 +501,11 @@ def do_setup_cmake():
   for flav in cmake_flavors:
     docmd("mkdir build.%s" % flav)
     dochdir("build.%s" % flav)
-    emit_rebuild_scripts(flav)
-    cmake_cmd = emit_cmake_cmd_script(flav)
+    emit_rebuild_scripts(flav, targdir)
+    cmake_cmd = emit_cmake_cmd_script(flav, targdir)
     if flag_parallel and not flag_dryrun:
       u.verbose(0, "...kicking off cmake for %s in parallel..." % flav)
-      builddir = "%s/%s/build.%s" % (ssdroot, flag_snapshot, flav)
+      builddir = "%s/%s/build.%s" % (ssdroot, targdir, flav)
       r = pool.apply_async(run_cmake, [builddir, cmake_cmd])
       results.append(r)
     else:
@@ -511,16 +528,27 @@ def do_snapshot_create():
   if flag_do_fetch:
     fetch_in_volume()
   docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
-  dochdir(ssdroot)
-  dochdir(flag_snapshot)
-  do_configure_binutils()
-  do_setup_cmake()
 
 
-def do_snapshot_build():
-  """Perform build in snapshot."""
+def do_configure():
+  """Run configure/setup/cmake in snapshot or subvol."""
+  if flag_do_fetch:
+    fetch_in_volume()
   dochdir(ssdroot)
-  dochdir(flag_snapshot)
+  targdir = flag_subvol
+  if flag_snapshot:
+    targdir = flag_snapshot
+  do_configure_binutils(targdir)
+  do_setup_cmake(targdir)
+
+
+def do_build():
+  """Perform build in snapshot or subvol."""
+  dochdir(ssdroot)
+  if flag_snapshot:
+    dochdir(flag_snapshot)
+  else:
+    dochdir(flag_subvol)
   if flag_binutils_build:
     dochdir("binutils-build")
     doscmd("make -j40")
@@ -536,6 +564,16 @@ def do_snapshot_build():
     u.verbose(0, "... ninja build stubbed out")
 
 
+def perform():
+  """Main driver routine."""
+  do_subvol_create()
+  if flag_snapshot:
+    do_snapshot_create()
+  if flag_configure:
+    do_configure()
+  do_build()
+
+
 def usage(msgarg):
   """Print usage and exit."""
   me = os.path.basename(sys.argv[0])
@@ -548,10 +586,12 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -r R  root subvolume is R
     -s S  snapshot is S
-    -n    stub out ninja build after snapshot creation
-    -N    stub out binutils build after snapshot creation
+    -c    run configure in subvol, not snapshot
+    -n    stub out ninja build
+    -N    stub out binutils build
     -q    quiet mode (do not echo commands before executing)
     -S X  use SCM flavor X (either git, svn, or git-svn). Def: git-svn
+    -B D  copy binutils from dir D instead of performing 'git clone'
     -D    dryrun mode (echo commands but do not execute)
     -X    set default build type to RelWithDebInfo
     -T    avoid setting up clang tools
@@ -561,33 +601,38 @@ def usage(msgarg):
     -F    run 'git fetch' or 'svn update' in subvolume
           before creating snapshot
 
-    Example 1: creates new subvolume 'llvm-trunk'
+    Example 1: creates new subvolume 'llvm-trunk', no build or configure
 
       %s -r llvm-trunk
 
-    Example 2: snapshot subvol 'llvm-trunk' to create 'llvm-trunk-snap'
+    Example 2: snapshot subvol 'llvm-trunk' creating 'llvm-trunk-snap' w/ builds
 
-      %s -r llvm-trunk -s llvm-snap
+      %s -r llvm-trunk -c -s llvm-snap
 
-    Example 2: snapshot subvol 'llvm-trunk' to create 'llvm-gronk',
+    Example 3: snapshot subvol 'llvm-trunk' to create 'llvm-gronk',
                stubbing out ninja build
 
-      %s -n -r llvm-trunk -s llvm-gronk
+      %s -r llvm-trunk -c -n -s llvm-gronk
 
-    """ % (me, me, me, me)
+    Example 4: create new subvol, then configure and build there
+               instead of later in snapshot
+
+      %s -r llvm-trunk -c
+
+    """ % (me, me, me, me, me)
   sys.exit(1)
 
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_subvol, flag_snapshot, flag_echo, flag_dryrun
+  global flag_subvol, flag_snapshot, flag_echo, flag_dryrun, flag_configure
   global flag_scm_flavor, flag_cmake_type, flag_include_llgo
   global flag_do_fetch, flag_include_tools, flag_include_polly, flag_parallel
   global flag_binutils_build, flag_run_ninja, llvm_rw_svn, flag_user
-  global ssdroot
+  global ssdroot, flag_binutils_location
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "DPGJS:FTXqdnNs:r:")
+    optlist, args = getopt.getopt(sys.argv[1:], "DPGJB:S:FTXqcdnNs:r:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -599,6 +644,14 @@ def parse_args():
       flag_binutils_build = False
     elif opt == "-n":
       flag_run_ninja = False
+    elif opt == "-c":
+      flag_configure = True
+    elif opt == "-B":
+      if os.path.exists(arg) and os.path.isdir(arg):
+        u.verbose(1, "drawing binutils from %s" % arg)
+        flag_binutils_location = arg
+      else:
+        usage("inaccessable/unknown binutils location %s" %arg)
     elif opt == "-S":
       if arg != "git" and arg != "svn" and arg != "git-svn":
         usage("illegal SCM flavor %s" % arg)
@@ -656,9 +709,5 @@ def parse_args():
 #
 parse_args()
 u.setdeflanglocale()
-if flag_snapshot:
-  do_snapshot_create()
-  do_snapshot_build()
-else:
-  do_subvol_create()
+perform()
 exit(0)

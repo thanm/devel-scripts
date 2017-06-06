@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Selectively runs gollvm instead of gccgo.
+"""Wrapper to selectively run gollvm instead of gccgo.
 
 This is a shim script that intercepts invocations of 'gccgo' and then
 in turn invokes either the real gccgo driver or a copy of gollvm
@@ -21,6 +21,16 @@ and just pass them on to gccgo.
 We also tack on a set of additional "-L" options to the llvm-goparse
 invocation so that it can find the go runtime libraries, and intercept
 the "-o" option so that we can run the asembler afterwards.
+
+To use this script, you will need a copy of GCCGO, e.g. the directory
+produced by running "make all && make install" in a GCCGO build tree.
+From within the gccgo install dir, run
+
+   gollvm-wrap.py --install
+
+This will modify the install directory to insert the wrapper into the
+compilation path.
+
 """
 
 import getopt
@@ -39,6 +49,18 @@ flag_dryrun = False
 
 # gccgo only mode
 flag_nollvm = False
+
+# trace llvm-goparse invocations
+flag_trace_llinvoc = False
+
+
+def docmd(cmd):
+  """Execute a command."""
+  if flag_echo:
+    sys.stderr.write("executing: " + cmd + "\n")
+  if flag_dryrun:
+    return
+  u.docmd(cmd)
 
 
 def form_golibargs(driver):
@@ -60,6 +82,11 @@ def perform():
 
   u.verbose(1, "argv: %s" % " ".join(sys.argv))
 
+  # llvm-goparse should be available somewhere in PATH, error if not
+  lines = u.docmdlines("which llvm-goparse", True)
+  if not lines:
+    u.error("no 'llvm-goparse' in PATH -- can't proceed")
+
   # Perform a walk of the command line arguments looking for Go files.
   reg = re.compile(r"^\S+\.go$")
   foundgo = False
@@ -76,6 +103,10 @@ def perform():
     u.verbose(1, "driver path is %s" % driver)
     args = [sys.argv[0]] + sys.argv[1:]
     u.verbose(1, "args: '%s'" % " ".join(args))
+    if not os.path.exists(driver):
+      u.warning("internal error: %s does not exist" % driver)
+      u.warning("[most likely this script was not installed correctly]")
+      usage()
     os.execv(driver, args)
     u.error("exec failed: %s" % driver)
 
@@ -109,6 +140,8 @@ def perform():
   driver = "llvm-goparse"
   u.verbose(1, "driver path is %s" % driver)
   nargs = ["llvm-goparse"] + nargs
+  if flag_trace_llinvoc:
+    u.verbose(0, "+ %s" % " ".join(nargs))
   rc = subprocess.call(nargs)
   if rc != 0:
     u.verbose(1, "return code %d from %s" % (rc, " ".join(nargs)))
@@ -122,7 +155,50 @@ def perform():
     u.verbose(1, "return code %d from %s" % (rc, ascmd))
     return 1
 
+  return 0
+
+
+def install_shim(scriptpath):
+  """Install shim into gccgo install dir."""
+
+  # Make sure we're in the right place (gccgo install dir)
+  if not os.path.exists("bin"):
+    usage("expected to find bin subdir")
+  if not os.path.exists("lib64/libgo.so"):
+    usage("expected to find lib64/libgo.so")
+  if not os.path.exists("bin/gccgo"):
+    usage("expected to find bin/gccgo")
+
+  # Check to see if installed already
+  if os.path.exists("bin/gccgo.real") and os.path.exists("bin/gollvm-wrap.py"):
+    u.error("wrapper appears to be installed already in this dir")
+
+  # Move aside the real gccgo binary
+  docmd("mv bin/gccgo bin/gccgo.real")
+
+  # Emit a script into gccgo
+  if flag_dryrun:
+    sys.stderr.write("<emit script into bin/gccgo>\n")
+  else:
+    try:
+      with open("./bin/gccgo", "w") as wf:
+        here = os.getcwd()
+        wf.write("#!/bin/sh\n")
+        wf.write("P=%s/bin/gollvm-wrap.py\n" % here)
+        wf.write("exec python ${P} $*\n")
+    except IOError:
+      u.error("open/write failed for bin/gccgo wrapper")
+  docmd("chmod 0755 bin/gccgo")
+
+  # Copy script
+  docmd("cp %s bin" % scriptpath)
+  sdir = os.path.dirname(scriptpath)
+  docmd("cp %s/script_utils.py bin" % sdir)
+
   # Success
+  u.verbose(0, "wrapper installed successfully")
+
+  # Done
   return 0
 
 
@@ -133,11 +209,15 @@ def usage(msgarg):
   print """\
     usage:  %s <gccgo args>
 
+    Options (via command line)
+    --install   installs wrapper into gccgo directory
+
     Options (via GOLLVM_WRAP_OPTIONS):
-    -d    increase debug msg verbosity level
-    -e    show commands being invoked
-    -D    dry run (echo cmds but do not execute)
-    -G    pure gccgo compile (no llvm-goparse invocations)
+    -t          trace llvm-goparse executions
+    -d          increase debug msg verbosity level
+    -e          show commands being invoked
+    -D          dry run (echo cmds but do not execute)
+    -G          pure gccgo compile (no llvm-goparse invocations)
 
     """ % os.path.basename(sys.argv[0])
   sys.exit(1)
@@ -145,7 +225,7 @@ def usage(msgarg):
 
 def parse_env_options():
   """Option parsing from env var."""
-  global flag_echo, flag_dryrun, flag_nollvm
+  global flag_echo, flag_dryrun, flag_nollvm, flag_trace_llinvoc
 
   optstr = os.getenv("GOLLVM_WRAP_OPTIONS")
   if not optstr:
@@ -153,7 +233,7 @@ def parse_env_options():
   args = optstr.split()
 
   try:
-    optlist, _ = getopt.getopt(args, "deDG")
+    optlist, _ = getopt.getopt(args, "detDG")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -163,6 +243,8 @@ def parse_env_options():
       u.increment_verbosity()
     elif opt == "-e":
       flag_echo = True
+    elif opt == "-t":
+      flag_trace_llinvoc = True
     elif opt == "-D":
       flag_dryrun = True
     elif opt == "-G":
@@ -173,5 +255,10 @@ def parse_env_options():
 # Setup
 u.setdeflanglocale()
 parse_env_options()
-prc = perform()
+
+# Either --install mode or regular mode
+if len(sys.argv) == 2 and sys.argv[1] == "--install":
+  prc = install_shim(sys.argv[0])
+else:
+  prc = perform()
 sys.exit(prc)

@@ -43,7 +43,9 @@ def undolink(link):
   # Hack: sometimes gofrontend can get ahead of gcc trunk, in which case
   # we may try to check out something that does not exist. Check for this
   # case and work around it.
-  st = u.docmderrout("git show HEAD~1:%s" % link, "/dev/null", True)
+  # rev = "HEAD~1"
+  rev = "HEAD"
+  st = u.docmderrout("git show %s:%s" % (rev, link), "/dev/null", True)
   if st != 0:
     u.warning("skipping %s, does not exist in trunk yet" % link)
   else:

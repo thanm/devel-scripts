@@ -242,7 +242,7 @@ def dochdir(thedir):
 
 def patch_repo(repo, flags):
   """Patch go repo if needed."""
-  rc = u.docmdnf("grep -q gccgoflags src/cmd/dist/buildtool.go")
+  rc = u.docmdnf("grep -q gccgoflags %s/src/cmd/dist/buildtool.go" % repo)
   if rc == 0:
     u.verbose(1, "src/cmd/dist/buildtool.go already patched")
     return
@@ -291,7 +291,7 @@ def repo_setup():
     u.verbose(0, "copying go.repo into %s" % c)
     copydir("go.repo", c)
     if v != "gc":
-      # Patch repo to insure that gccgo/llgo build is with -O
+      # Patch repo to insure that gccgo build is with -O2
       patch_repo(c, variants[v]["extra_flags"])
 
 
@@ -340,11 +340,10 @@ def bootstrap(repo, goroot, variant):
       wf.write("  echo '*** FAIL ***'\n")
       wf.write("  exit 1\n")
       wf.write("fi\n")
-      if variant != "gc":
-        wf.write("# Hack: copy bootstrap compiler into correct place\n")
-        wf.write("cd ../pkg\n")
-        wf.write("rm -f tool/linux_amd64/compile\n")
-        wf.write("mv bootstrap/bin/compile tool/linux_amd64/compile\n")
+      wf.write("# Hack: copy bootstrap compiler into correct place\n")
+      wf.write("cd ../pkg\n")
+      wf.write("rm -f tool/linux_amd64/compile\n")
+      wf.write("mv bootstrap/bin/compile tool/linux_amd64/compile\n")
   except IOError:
     u.error("unable to open %s for writing" % f)
   outfile = "err.%s.txt" % repo
@@ -526,16 +525,17 @@ def process_variant(variant, ppo):
   if not flag_skip_bootstrap:
     bootstrap(build_dir, installation, variant)
   work = None
-  if not flag_skip_benchrun:
-    work, runit = benchprep(build_dir, variant)
-    benchmark(build_dir, runit, "/usr/bin/time", "tim")
-    perfwrap = "perf record -o %s/perf.data.%s" % (here, variant)
-    benchmark(build_dir, runit, perfwrap, "perf")
-    if 1 == 0:
-      # need to build libgo.so with -fno-omit-frame-pointer
-      # before doing this
-      gperfwrap = "perf record -g -o %s/perf.data.cg.%s" % (here, variant)
-      benchmark(build_dir, runit, gperfwrap, "cgperf")
+  if flag_skip_benchrun:
+    return
+  work, runit = benchprep(build_dir, variant)
+  benchmark(build_dir, runit, "/usr/bin/time", "tim")
+  perfwrap = "perf record -o %s/perf.data.%s" % (here, variant)
+  benchmark(build_dir, runit, perfwrap, "perf")
+  if 1 == 0:
+    # need to build libgo.so with -fno-omit-frame-pointer
+    # before doing this
+    gperfwrap = "perf record -g -o %s/perf.data.cg.%s" % (here, variant)
+    benchmark(build_dir, runit, gperfwrap, "cgperf")
   # report
   report_file = "rep.%s.txt" % variant
   docmdout("perf report -i perf.data.%s" % variant, report_file)

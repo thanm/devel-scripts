@@ -61,6 +61,7 @@
   "Enter git blame mode."
   (interactive "p")
   (magit-blame-mode))
+(setq magit-auto-revert-mode nil)
 ;;
 ;; Rebind some keys
 ;;
