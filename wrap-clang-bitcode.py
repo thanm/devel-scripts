@@ -166,10 +166,10 @@ def setup():
   m = reg.match(filepath)
   if m:
     ext = m.group(2)
-    if ext == "c" or ext == "cpp":
+    if ext == "c" or ext == "cpp" or ext == "cc":
       basename = m.group(1)
   if not basename:
-    u.error("expected .c or .cpp input argument (got %s)" % filepath)
+    u.error("expected {.c,.cc,.cpp} input argument (got %s)" % filepath)
 
 
 def perform():

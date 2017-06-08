@@ -1348,6 +1348,7 @@ alias android_python_lint=pep8
 # Git
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
+alias gb="git branch"
 alias glo="git log --oneline"
 alias glf='git log --name-only'
 alias gld='git log -p'
