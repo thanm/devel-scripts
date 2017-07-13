@@ -326,7 +326,7 @@ def bootstrap(repo, goroot, variant):
     rmfile(f)
   try:
     with open(f, "w") as wf:
-      wf.write("#/bin/sh\n")
+      wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
       wf.write("export GOROOT_BOOTSTRAP=%s\n" % goroot)
@@ -362,7 +362,7 @@ def benchprep(repo, variant):
     rmfile(f)
   try:
     with open(f, "w") as wf:
-      wf.write("#/bin/sh\n")
+      wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
       if variant == "gccgo":
@@ -412,7 +412,7 @@ def benchmark(repo, runscript, wrapcmd, tag):
     rmfile(f)
   try:
     with open(f, "w") as wf:
-      wf.write("#/bin/sh\n")
+      wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       if flag_gomaxprocs:
         wf.write("export GOMAXPROCS=%s\n" % flag_gomaxprocs)

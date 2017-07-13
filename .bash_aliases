@@ -834,6 +834,7 @@ function makegodirs() {
 
 function setgccgoroot() {
   local d=$1
+  local which=$2
 
   if [ ! -z "$MYGCCGOROOT" ]; then
     echo "error: MYGCCGOROOT already set to $MYGCCGOROOT"
@@ -857,8 +858,19 @@ function setgccgoroot() {
 
   echo "MYGCCGOROOT set to $d"
   export MYGCCGOROOT=$d
-  appendToPathIfNotAlreadyPresent $MYGCCGOROOT/bin
-  echo "$MYGCCGOROOT/bin appended to path"
+  if [ -z "$which" -o "$which" = "secondary" ]; then
+    appendToPathIfNotAlreadyPresent $MYGCCGOROOT/bin
+    which=appended
+  elif [ "$which" = "prepend" ]; then
+    prependToPathIfNotAlreadyPresent $MYGCCGOROOT/bin
+    which=prepended
+  else
+    unset MYGCCGOROOT
+    echo "error: which tag is $which, can't understand that"
+    return
+  fi
+
+  echo "$MYGCCGOROOT/bin $which to path"
   export LD_LIBRARY_PATH="$MYGCCGOROOT/lib64"
 }
 
@@ -1349,6 +1361,8 @@ alias android_python_lint=pep8
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias gb="git branch"
+alias gbl="git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
+alias gs="git status"
 alias glo="git log --oneline"
 alias glf='git log --name-only'
 alias gld='git log -p'

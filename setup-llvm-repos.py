@@ -396,8 +396,10 @@ def emit_cmake_cmd_script(flav, targdir):
   ccomp = select_compiler_flavor(flav)
   cmake_type = select_cmake_type(flav)
   extra = select_cmake_extras(flav)
-  cmake_cmd = ("%s cmake -DCMAKE_BUILD_TYPE=%s -D%s %s %s -G Ninja "
-               "../llvm" % (dyldsetting, cmake_type, bpath, ccomp, extra))
+  limitlink = "LLVM_PARALLEL_LINK_JOBS=8"
+  cmake_cmd = ("%s cmake -D%s -DCMAKE_BUILD_TYPE=%s -D%s %s %s -G Ninja "
+               "../llvm" % (dyldsetting, limitlink,
+                            cmake_type, bpath, ccomp, extra))
   if flag_dryrun:
     print "+++ archiving cmake cmd: %s" % cmake_cmd
   else:
