@@ -118,6 +118,9 @@ go_install = "/place/go/install/here"
 # Where to look for gccgo-based go installation
 gccgo_install = "/place/gccgo/install/here"
 
+# Where to look for gollvm-based go installation
+gollvm_install = "/place/gollvm/install/here"
+
 # Hard-coded list of functions to analyze more closely
 interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
                       "gc.escwalkBody"),
@@ -138,7 +141,6 @@ ppolines = 0
 # Files we generate
 generated_reports = {}
 
-
 # Variants/flavors that we're benchmarking
 
 gc_variant = {
@@ -153,15 +155,16 @@ gccgo_variant = {
     "extra_flags": "-O2 -static -fgo-optimize-allocs"
     }
 
-llgo_variant = {
-    "tag": "llgo",
-    "install": "/ssd2/llgobuild-addrt/build.opt/gotree",
-    "extra_flags": "-O2"
+gollvm_variant = {
+    "tag": "gollvm",
+    "install": "/ssd/gcc-trunk/cross.gollvm",
+    "extra_flags": "-O2 -static -fgo-optimize-allocs"
     }
 
 variants = {
     "gc": gc_variant,
     "gccgo": gccgo_variant,
+    "gollvm": gollvm_variant,
     }
 
 
@@ -330,7 +333,7 @@ def bootstrap(repo, goroot, variant):
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
       wf.write("export GOROOT_BOOTSTRAP=%s\n" % goroot)
-      if variant == "gccgo":
+      if variant == "gccgo" or variant == "gollvm":
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src\n" % repo)
       wf.write("export GOOS=linux\n")
@@ -643,8 +646,8 @@ def usage(msgarg):
     -H    emit HTML for assembly dumps and reports
     -g X  benchmark the go compiler drawn from go root X
     -G X  benchmark the gccgo compiler drawn from gccgo root X
+    -L X  benchmark the gollvm compiler drawn from gollvm root X
     -M N  set GOMAXPROCS to N prior to bench run
-    -L    add experimental llgo variant (currently non-working)
     -P    preserve 'go build' workdirs
 
     Example usage:
@@ -653,7 +656,8 @@ def usage(msgarg):
     $ cd /tmp/benchrun
     $ %s \\
         -g /ssd/mygorepo \\
-        -G /ssd/mygccgoinstall
+        -G /ssd/mygccgoinstall \\
+        -L /ssd/mygollvminstall
 
     The command above will:
     - run git clone to download a copy of the Go repo
@@ -666,7 +670,7 @@ def usage(msgarg):
       the compiler invocations
     - rerun the captured compiler with perf.data collection + timings,
       to compare the performance of "gc-compiled" vs "gccgo-compiled"
-      compiler binary
+      cs "gollvm-compiled" compiler binary
 
     """ % (me, me)
 
@@ -680,7 +684,7 @@ def parse_args():
   global flag_gomaxprocs
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBNM:DHLPg:G:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBNM:DHPg:G:L:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -716,9 +720,6 @@ def parse_args():
       u.verbose(1, "setting go_install to %s" % arg)
       go_install = arg
       variants["gc"]["install"] = go_install
-    elif opt == "-L":
-      u.verbose(0, "adding experimental llgo variant")
-      variants["llgo"] = llgo_variant
 
     # Make sure gccgo install look ok
   if not os.path.exists(gccgo_install):

@@ -204,3 +204,45 @@
 (defun ss ()
   (interactive)
   (server-start))
+;;
+;; The following code written by Austin. See
+;; https://go-review.googlesource.com/c/proposal/+/67930
+;; ........................................................................
+;; This makes fill-paragraph (M-q) add line breaks at sentence
+;; boundaries in addition to normal wrapping. This is the style for Go
+;; proposals.
+;;
+;; Loading this script automatically enables this for markdown-mode
+;; buffers in the go-design/proposal directory. It can also be
+;; manually enabled with M-x enable-fill-split-sentences.
+(defun fill-split-sentences (&optional justify)
+  "Fill paragraph at point, breaking lines at sentence boundaries."
+  (interactive)
+  (save-excursion
+    ;; Do a trial fill and get the fill prefix for this paragraph.
+    (let ((prefix (or (fill-paragraph) ""))
+          (end (progn (fill-forward-paragraph 1) (point)))
+          (beg (progn (fill-forward-paragraph -1) (point))))
+      (save-restriction
+        (narrow-to-region (line-beginning-position) end)
+        ;; Unfill the paragraph.
+        (let ((fill-column (point-max)))
+          (fill-region beg end))
+        ;; Fill each sentence.
+        (goto-char (point-min))
+        (while (not (eobp))
+          (if (bobp)
+              ;; Skip over initial prefix.
+              (goto-char beg)
+            (delete-horizontal-space 'backward-only)
+            (insert "\n" prefix))
+          (let ((sbeg (point))
+                (fill-prefix prefix))
+            (forward-sentence)
+            (fill-region-as-paragraph sbeg (point)))))
+      prefix)))
+
+(defun enable-fill-split-sentences ()
+  "Make fill break lines at sentence boundaries in this buffer."
+  (interactive)
+  (setq-local fill-paragraph-function #'fill-split-sentences))

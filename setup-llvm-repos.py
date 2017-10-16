@@ -93,8 +93,8 @@ llgo_git = "http://llvm.org/git/llgo.git"
 polly_git = "http://llvm.org/git/polly.git"
 
 # Clang compilers. Must be full path.
-clang_c_compiler = "/usr/bin/clang-3.6"
-clang_cxx_compiler = "/usr/bin/clang++-3.6"
+clang_c_compiler = "/usr/bin/clang-3.9"
+clang_cxx_compiler = "/usr/bin/clang++-3.9"
 
 # Gcc compilers. Must be full path.
 gcc_c_compiler = "/usr/bin/gcc-4.8"
@@ -381,8 +381,9 @@ def select_compiler_flavor(flav):
                   "-DCMAKE_AR=%s/bin/llvm-ar " % (tbdir, tbdir))
   else:
     u.error("internal error -- bad ccflav setting %s" % ccflav)
-  return ("%s-DCMAKE_C_COMPILER=%s "
+  return ("%s-DCMAKE_C_COMPILER=%s -DCMAKE_ASM_COMPILER=%s "
           "-DCMAKE_CXX_COMPILER=%s" % (extrastuff,
+                                       build_c_compiler,
                                        build_c_compiler,
                                        build_cxx_compiler))
 

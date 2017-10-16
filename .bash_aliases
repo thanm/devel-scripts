@@ -352,6 +352,7 @@ function llvm-genfiles-flavor() {
   local CFINDARGS="$SKIPARGS \
     -name *.inc $PR -o \
     -name *.cc $PR -o \
+    -name *.def $PR -o \
     -name *.c $PR -o \
     -name *.cpp $PR -o \
     -name *.h $PR"
@@ -729,6 +730,14 @@ function appendToPathIfNotAlreadyPresent () {
   esac
 }
 
+function silentAppendToPathIfNotAlreadyPresent () {
+  local D=$1
+  case ":$PATH:" in
+    *":$D:"*) /bin/true ;;
+    *) export PATH="${PATH}:${D}" ;;
+  esac
+}
+
 function removeFromPathIfPresent() {
   local d="$1"
   local p=""
@@ -915,7 +924,7 @@ function setgoroot() {
     warngodirs $d
   fi
 
-  setgobootstrap
+  setgobootstrapifneeded
 
   echo "MYGOROOT set to $d"
   export MYGOROOT=$d
@@ -945,8 +954,12 @@ function unsetgoroot() {
   
 }
 
-function setgobootstrap() {
+function setgobootstrapifneeded() {
   local d="$1"
+
+  if [ ! -z "$GOROOT_BOOTSTRAP" ]; then
+    return
+  fi	
 
   if [ -z "$d" ]; then
     # Infer bootstrap based on current go
@@ -1225,7 +1238,11 @@ function gccgo_build_and_test() {
   echo "make -j20 check-go 1> terr.txt 2>&1"
   make -j20 check-go 1> terr.txt 2>&1
   if [ $? != 0 ]; then
-    echo "** test failed"
+    echo "****************"
+    echo "****************"
+    echo "** TEST FAILED "
+    echo "****************"
+    echo "****************"
     startemacs berr.txt terr.txt
     return
   fi
@@ -1312,7 +1329,7 @@ alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
 alias gcctrunkconfigmaster="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-master/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk-master/binutils-cross/bin/ld.gold"
 alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
-
+alias gcc_show_errno='gcc -E -xc - < /usr/include/errno.h  | cut -f2 -d\" | fgrep / | sort | uniq | xargs cat | egrep "define\s+E"'
 
 # Android
 alias srcbuildsetup='. build/envsetup.sh'
@@ -1343,6 +1360,7 @@ alias showinstalledpackages="apt list --installed"
 alias xtsmall='xterm -sb -fn 7x13 -sl 5000'
 alias xtmed='xterm -sb -fn 9x15 -sl 5000'
 alias xtbig='xterm -sb -fn 10x20 -sl 5000'
+alias bash_no_aslr='setarch `uname -m` -R bash'
 
 # BTRFS
 alias show_fs_type='stat -f --printf="%T\n" .'
@@ -1362,6 +1380,8 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias gb="git branch"
 alias gbl="git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
+alias gca="echo git commit --amend ; git commit --amend"
+alias gcar="echo git commit --amend --reuse-message=HEAD ; git commit --amend --reuse-message=HEAD"
 alias gs="git status"
 alias glo="git log --oneline"
 alias glf='git log --name-only'

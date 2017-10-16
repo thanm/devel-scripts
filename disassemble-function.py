@@ -81,9 +81,6 @@ def grabaddrsize(line, func):
 
 def disas(func, tgt):
   """Disassemble a specified function."""
-  # 00691d40 g     F .text      00000632 ssa.applyRewrite
-  regexes = [re.compile(r"^(\S+)\s.+\s(\S+)\s+\.hidden\s+(\S+)$"),
-             re.compile(r"^(\S+)\s.+\s(\S+)\s+(\S+)$")]
   u.verbose(1, "looking for %s in output of objdump -t %s" % (func, tgt))
   lines = u.docmdlines("objdump -t %s" % tgt)
   hexstaddr = None
