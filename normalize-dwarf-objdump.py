@@ -170,7 +170,7 @@ def perform_filt(inf, outf):
 
       u.verbose(3, "attr is %s" % attr)
       if attr == "DW_AT_name":
-        u.verbose(3, "diename[%x] is %s" % (curoff, rem))
+        u.verbose(3, "absoff %s diename[%x] is %s" % (absoff, off, rem))
         diename[curoff] = rem
       elif attr == "DW_AT_abstract_origin":
         m3 = absore.match(line)
