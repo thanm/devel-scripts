@@ -5,7 +5,6 @@
 
 from collections import defaultdict
 import getopt
-from operator import itemgetter
 import os
 import re
 import sys
@@ -41,6 +40,8 @@ absore = re.compile(r"^\s*\<\S+\>\s+DW_AT_\S+\s*\:\s*\<0x(\S+)\>.*$")
 
 # Misc
 hexvalre = re.compile(r"^\s*0x(\S+)\s*$")
+hexval2re = re.compile(r"^\s*\<0x(\S+)\>\s*$")
+
 
 def docmd(cmd):
   """Execute a command."""
@@ -172,7 +173,7 @@ def expand_die(lines):
   for line in lines[1:]:
     m2 = indiere.match(line)
     if not m2:
-      u.error("can'r apply indiere match to %s" % line)
+      u.error("can't apply indiere match to %s" % line)
     attr = m2.group(4)
     val = m2.group(6).strip()
     attrs[attr] = val
@@ -182,12 +183,15 @@ def expand_die(lines):
 
 
 def grab_hex_attr(attrs, attrname):
-  """Grab an attribute by value, convert from hex, return dec or -1"""
+  """Grab an attribute by value, convert from hex, return dec or -1."""
   if attrname in attrs:
     hexval = attrs[attrname]
     m1 = hexvalre.match(hexval)
     if m1:
       return int(m1.group(1), 16)
+    m2 = hexval2re.match(hexval)
+    if m2:
+      return int(m2.group(1), 16)
   return -1
 
 
@@ -198,14 +202,18 @@ def collect_die_nametag(attrs, off, tag, dies):
   if "DW_AT_name" in attrs:
     return attrs["DW_AT_name"]
 
+  for attr, val in attrs.iteritems():
+    u.verbose(2, "++ %s => %s" % (attr, val))
+
   # Not named -> look at abstract origin
-  if "DW_AT_abstract_origin" in attrs:
-    absoff = attrs["DW_AT_abstract_origin"]
-    if absoff in dies:
-      lines = dies[absoff]
-      aabbrev, atag, aattrs = expand_die(lines)
-      if "DW_AT_name" in aattrs:
-        return aattrs["DW_AT_name"]
+  absoff = grab_hex_attr(attrs, "DW_AT_abstract_origin")
+  u.verbose(1, "absoff for %x/%s is %x" % (off, tag, absoff))
+  if absoff in dies:
+    u.verbose(1, "found abs DIE @ %x" % absoff)
+    lines = dies[absoff]
+    _, _, aattrs = expand_die(lines)
+    if "DW_AT_name" in aattrs:
+      return aattrs["DW_AT_name"]
 
   # No success, return tag
   return "unknown@%s@%x" % (tag, off)
@@ -218,21 +226,115 @@ def get_pc_range(attrs):
   return (lodec, hidec)
 
 
-def collect_ranged_items(dies):
+def collect_ranged_items(lm, dies):
   """Collect items that have start/end ranges."""
 
   results = []
 
+  # Ranges refs (stored as decimal offset)
+  rlrefs = defaultdict(list)
+
   for off, lines in dies.iteritems():
-    abbrev, tag, attrs = expand_die(lines)
+    _, tag, attrs = expand_die(lines)
 
     # Does it have a PC range?
     lodec, hidec = get_pc_range(attrs)
     if lodec != -1 and hidec != -1:
       # Success. Call a helper to collect more info, and add to list
       name = collect_die_nametag(attrs, off, tag, dies)
-      tup = (lodec, hidec, name)
+      tup = (name, lodec, hidec)
       results.append(tup)
+      continue
+
+    # Reference to range list? Store for later processing if so
+    rlref = grab_hex_attr(attrs, "DW_AT_ranges")
+    if rlref != -1:
+      u.verbose(1, "queued rref=%x tag=%s off=%x in rlrefs" % (rlref, tag, off))
+      tup = (attrs, off, tag)
+      rlrefs[rlref].append(tup)
+
+  if rlrefs:
+    results = postprocess_rangerefs(lm, rlrefs, dies, results)
+
+  return results
+
+
+def postprocess_rangerefs(lm, rlrefs, dies, results):
+  """Read selected portions of the .debug_ranges section."""
+
+  # Singleton entry
+  # ex: 00000000 0000000000401000 000000000040128b
+  singre = re.compile(r"^\s*([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)\s*$")
+
+  # End if list entry
+  # ex: 00000220 <End of list>
+  endre = re.compile(r"^\s*([0-9a-f]+)\s+\<End of list\>\s*$")
+
+  # Base address entry
+  # ex: 00000260 ffffffffffffffff 00000000004875b0 (base address)
+  basere = re.compile(r"^\s*([0-9a-f]+)\s+([0-9a-f]+)"
+                      r"\s+([0-9a-f]+)\s+\(base address\)\s*$")
+
+  # Ranges that were referred to. Key is offset, value is range list.
+  refranges = {}
+
+  # Unmatched lines
+  unmatched = []
+
+  # Whether we're in a range at the moment
+  inrange = False
+
+  # Current range, as a list of (st,en) tuples
+  crange = []
+
+  # Collect the dump
+  lines = u.docmdlines("objdump --dwarf=Ranges %s" % lm)
+
+  for line in lines:
+    off = -1
+    st = -1
+    en = -1
+    if not inrange:
+      m = basere.match(line)
+      if m:
+        inrange = True
+        continue
+    else:
+      m = endre.match(line)
+      if m:
+        off = int(m.group(1), 16)
+        inrange = False
+        refranges[off] = crange
+        crange = []
+        continue
+    m1 = singre.match(line)
+    if m1:
+      inrange = True
+      off = int(m1.group(1), 16)
+      st = int(m1.group(2), 16)
+      en = int(m1.group(3), 16)
+      if off in rlrefs:
+        # This is an interesting range. Keep track of it.
+        tup = (st, en)
+        crange.append(tup)
+      continue
+    unmatched.append(line)
+
+  for l in unmatched:
+    u.verbose(3, "unmatched line in .debug_ranges: %s" % l)
+
+  # OK, now post-process to create items of interest
+  for roff, tlist in rlrefs.iteritems():
+    if roff not in refranges:
+      u.verbose(1, "could not locate offset %x in .debug_ranges", off)
+      continue
+    for t in tlist:
+      attrs, dieoff, tag = t
+      name = collect_die_nametag(attrs, dieoff, tag, dies)
+      for rng in refranges[roff]:
+        hidec, lodec = rng
+        tup = (name, hidec, lodec)
+        results.append(tup)
 
   return results
 
@@ -281,7 +383,12 @@ def dodwarf(asmlines):
           u.verbose(2, " %s => %s" % (attr, val))
 
     # Collect ranged items
-    ranged_items = collect_ranged_items(dies)
+    ranged_items = collect_ranged_items(lm, dies)
+
+  # Debugging
+  for ri in ranged_items:
+    name, lo, hi = ri
+    u.verbose(1, "ranged item: %s [%x,%x)" % (name, lo, hi))
 
   # ASM re
   asmre = re.compile(r"(^\s*)(\S+)(\:\s*\S.*)$")
@@ -311,7 +418,7 @@ def dodwarf(asmlines):
     # Assumes smallish functions -- replace with something more
     # efficient if this assumption doesn't hold.
     for tup in ranged_items:
-      lo, hi, name = tup
+      name, lo, hi = tup
       if lo == decaddr:
         suffixes.append(" begin %s" % name)
       if hi == decaddr:

@@ -35,6 +35,9 @@ import script_utils as u
 flag_infile = None
 flag_outfile = None
 
+# Perform normalization
+flag_normalize = True
+
 # Strip offsets if true
 flag_strip_offsets = False
 
@@ -69,8 +72,10 @@ attrdwoffre = re.compile(r"^(.*)\<0x(\S+)\>(.*)$")
 
 def compute_reloff(absoff, origin):
   """Compute relative offset from absolute offset."""
-  odec = int(origin, 16)
   oabs = int(absoff, 16)
+  if not flag_normalize:
+    return oabs
+  odec = int(origin, 16)
   delta = oabs - odec
   return delta
 
@@ -234,6 +239,7 @@ def usage(msgarg):
     -S    strip DWARF offsets from die/attr dumps
     -P    strip location lists, hi/lo PC attrs
     -A    do not annotate abstract origin refs with name
+    -N    don't rewrite offsets (turn normalization off)
 
     """ % me
   sys.exit(1)
@@ -242,10 +248,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_infile, flag_outfile, flag_strip_offsets, flag_strip_pcinfo
-  global flag_annotate_abstract
+  global flag_annotate_abstract, flag_normalize
 
   try:
-    optlist, _ = getopt.getopt(sys.argv[1:], "di:o:SPA")
+    optlist, _ = getopt.getopt(sys.argv[1:], "di:o:SPAN")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -263,6 +269,8 @@ def parse_args():
       flag_strip_pcinfo = True
     elif opt == "-A":
       flag_annotate_abstract = False
+    elif opt == "-N":
+      flag_normalize = False
 
 
 parse_args()
