@@ -300,3 +300,98 @@ def trim_perf_report_file(infile):
     ft.write(sline + "\n")
   ft.close()
   return 0
+
+
+# Return value is branch, mods, untracked, renames, rev_renames
+
+def get_git_status():
+  """Collect and return info from git status -sb"""
+  stcmd = "git status -sb"
+  u.verbose(1, "modfiles git cmd: %s" % stcmd)
+  lines = u.docmdlines(stcmd)
+
+  # key is file, value is M/A/D
+  modifications = {}
+
+  # key is old file, val is new file
+  renames = {}
+
+  # untracked files
+  untracked = {}
+
+  # key is new file, val is old file
+  rev_renames = {}
+
+  # First line
+  branch = None
+  line = lines[0]
+  bs = [re.compile(r"^\#\#\s+(\S+)\.\.(\S+)\s.*$"),
+        re.compile(r"^\#\#\s+(\S+)\s*$")]
+  for b in bs:
+    m = b.match(line)
+    if not m:
+      continue
+    branch = m.group(1)
+  if not branch:
+    error("internal error: pattern match failed "
+            "for git status line %s" % line)
+
+  # Remaining lines
+  rs = re.compile(r"^\s*$")
+  rb = re.compile(r"^\S+\.~\d+~$")
+  r1 = re.compile(r"^(\S+)\s+(\S+)$")
+  r2 = re.compile(r"^(\S+)\s+(\S+) \-\> (\S+)$")
+  for line in lines[1:]:
+    verbose(2, "git status line: +%s+" % line.strip())
+    ms = rs.match(line)
+    if ms:
+      continue
+    m1 = r1.match(line)
+    if m1:
+      op = m1.group(1)
+      modfile = m1.group(2)
+      if op == "??":
+        untracked[modfile] = 1
+        continue
+      if op == "AM" or op == "MM":
+        if rb.match(modfile):
+          continue
+        error("found modified or untracked "
+                "file %s -- please run git add ." % modfile)
+      if op != "A" and op != "M" and op != "D":
+        error("internal error: bad op %s in git "
+                "status line %s" % (op, line.strip()))
+      if modfile in modifications:
+        error("internal error: mod file %s "
+                "already in table" % modfile)
+      modifications[modfile] = op
+      continue
+    m2 = r2.match(line)
+    if m2:
+      op = m2.group(1)
+      oldfile = m2.group(2)
+      newfile = m2.group(3)
+      if op == "RM":
+        error("found modified file %s -- please run git add ." % newfile)
+      if oldfile in modifications:
+        error("internal error: src rename %s "
+              "already in modifications table" % oldfile)
+      if oldfile in renames:
+        error("internal error: src rename %s "
+              "already in modifications table" % oldfile)
+      if op == "R":
+        renames[oldfile] = newfile
+        rev_renames[newfile] = oldfile
+        if newfile in modifications:
+          u.error("internal error: dest of rename %s "
+                  "already in modifications table" % newfile)
+        renames[oldfile] = newfile
+        rev_renames[newfile] = oldfile
+        modifications[newfile] = "M"
+      else:
+        u.error("internal error: unknown op %s "
+                "in git status line %s" % (op, line))
+      continue
+    u.error("internal error: pattern match failed "
+            "for git status line %s" % line)
+    return branch, modifications, untracked, renames, rev_renames

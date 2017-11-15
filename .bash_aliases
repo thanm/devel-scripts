@@ -1308,6 +1308,59 @@ function binutilstrunkconfig() {
   rm $TF
 }
 
+function emacsbranched() {
+  local WHICH="$*"
+  local BN=""
+  local FILES=""
+  local REMOTE=""
+  local WORKROOT=""
+  local FROMROOT=false
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+
+  # Determine branch name
+  BN=`git status -sb | head -1 | cut -c3- | cut -f1 -d.`
+  echo branch is $BN
+
+  # Determine files different from master
+  if [ $BN != "master" ]; then
+    FILES=`git diff --name-only master $BN`
+    FROMROOT=true
+    #echo "file list: $FILES"
+  fi
+  FILES="$FILES $WHICH"
+   
+
+  # Which repo?
+  REMOTE=`git remote -v | head -1 | expand | tr -s " " | cut -f2 -d" "`
+  #echo remote is $REMOTE
+
+  WORKROOT=`git rev-parse --show-toplevel`
+
+  if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
+    export GOROOT=$WORKROOT
+    echo GOROOT=$WORKROOT
+  fi
+
+  if [ "$FROMROOT" = "yes" ]; then
+    pushd $WORKROOT
+  fi
+  startemacs $FILES
+  if [ "$FROMROOT" = "yes" ]; then
+    popd
+  fi
+  
+  if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
+    unset GOROOT
+  fi
+}
+  
+
 #......................................................................
 
 alias hh='history 25'

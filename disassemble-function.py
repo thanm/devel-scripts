@@ -326,7 +326,7 @@ def postprocess_rangerefs(lm, rlrefs, dies, results):
   # OK, now post-process to create items of interest
   for roff, tlist in rlrefs.iteritems():
     if roff not in refranges:
-      u.verbose(1, "could not locate offset %x in .debug_ranges", off)
+      u.verbose(1, "could not locate offset %x in .debug_ranges" % off)
       continue
     for t in tlist:
       attrs, dieoff, tag = t

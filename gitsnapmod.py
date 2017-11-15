@@ -197,6 +197,8 @@ def archive():
   """Archive modifications."""
   if flag_oldsha:
     dcmd = "git diff %s..%s" % (flag_oldsha, flag_newsha)
+  elif flag_branch_to_diff:
+    dcmd = "git diff %s master" % flag_branch_to_diff
   else:
     dcmd = "git diff --cached"
   docmdout(dcmd, "%s/git.diff.txt" % flag_destdir)

@@ -109,7 +109,10 @@ def munge_attrval(attr, oval, diestart):
       val = untracked_dwrefs[absref]
     else:
       n = len(untracked_dwrefs)
-      unk = ("<untracked %d>" % (n+1))
+      if flag_normalize:
+        unk = (" <untracked %d>" % (n+1))
+      else:
+        unk = (" <untracked 0x%s>" % absref)
       untracked_dwrefs[absref] = unk
       val = unk
   if code == 2:
