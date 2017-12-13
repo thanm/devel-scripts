@@ -71,6 +71,9 @@ flag_include_llgo = False
 # Whether to include polly in repo
 flag_include_polly = False
 
+# Whether to include libcxx in repo
+flag_include_libcxx = False
+
 # Run cmake cmds in parallel
 flag_parallel = True
 
@@ -91,9 +94,15 @@ binutils_git = "git://sourceware.org/git/binutils-gdb.git"
 llvm_git = "http://llvm.org/git/llvm.git"
 clang_git = "http://llvm.org/git/clang.git"
 clang_tools_git = "http://llvm.org/git/clang-tools-extra.git"
-compiler_rt_git = "http://llvm.org/git/compiler-rt.git"
 llgo_git = "http://llvm.org/git/llgo.git"
 polly_git = "http://llvm.org/git/polly.git"
+polly_svn = "http://llvm.org/svn/llvm-project/polly"
+libcxx_svn = "https://llvm.org/svn/llvm-project/libcxx"
+libcxx_git = "http://llvm.org/git/libcxx.git"
+libcxxabi_svn = "https://llvm.org/svn/llvm-project/libcxxabi"
+libcxxabi_git = "http://llvm.org/git/libcxxabi.git"
+compiler_rt_svn = "https://llvm.org/svn/llvm-project/compiler-rt"
+compiler_rt_git = "http://llvm.org/git/compiler-rt.git"
 
 # Clang compilers. Must be full path.
 clang_c_compiler = "/usr/bin/clang-3.9"
@@ -188,17 +197,17 @@ def dochdir(thedir):
     u.error("chdir failed: %s" % err)
 
 
-def do_llvmtool_create(top, tool, gitloc):
-  """Create new sub-repo within llvm/tools."""
-  dochdir("%s/llvm/tools" % top)
+def do_llvmtool_create(top, tool, pdir, gitloc, svnloc):
+  """Create new sub-repo within llvm/tools or llvm/projects."""
+  dochdir("%s/llvm/%s" % (top, pdir))
   if flag_scm_flavor == "git":
-    doscmd("svn co %s/llgo/trunk %s" % (llvm_ro_svn, tool))
+    doscmd("svn co %s/%s/trunk %s" % (llvm_ro_svn, tool))
   else:
     doscmd("git clone %s %s" % (gitloc, tool))
     if flag_scm_flavor == "git-svn":
       dochdir("%s" % tool)
-      doscmd("git svn init %s/%s/trunk "
-             "--username=%s" % (llvm_git_on_svn, tool, flag_user))
+      doscmd("git svn init %s/trunk "
+             "--username=%s" % (svnloc, flag_user))
       doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
       doscmd("git svn rebase -l")
 
@@ -259,24 +268,19 @@ def do_subvol_create():
 
   # Now llgo
   if flag_include_llgo:
-    do_llvmtool_create(top, "llgo", llgo_git)
+    do_llvmtool_create(top, "llgo", "tools", llgo_git, llgo_svn)
 
   # Now polly
   if flag_include_polly:
-    do_llvmtool_create(top, "polly", polly_git)
+    do_llvmtool_create(top, "polly", "tools", polly_git, polly_svn)
+
+  # Now libcxx
+  if flag_include_libcxx:
+    do_llvmtool_create(top, "libcxx", "projects", libcxx_git, libcxx_svn)
+    do_llvmtool_create(top, "libcxxabi", "projects", libcxxabi_git, libcxxabi_svn)
 
   # Now compiler-rt
-  dochdir("%s/llvm/projects" % top)
-  if flag_scm_flavor == "svn":
-    doscmd("svn co %s/compiler-rt/trunk compiler-rt" % llvm_ro_svn)
-  else:
-    doscmd("git clone %s" % compiler_rt_git)
-    if flag_scm_flavor == "git-svn":
-      dochdir("compiler-rt")
-      doscmd("git svn init %s/compiler-rt/trunk "
-             "--username=%s" % (llvm_git_on_svn, flag_user))
-      doscmd("git config svn-remote.svn.fetch :refs/remotes/origin/master")
-      doscmd("git svn rebase -l")
+  do_llvmtool_create(top, "compiler-rt", "projects", compiler_rt_git, compiler_rt_svn)
 
   # Now binutils. NB: git clone can be incredibly slow sometimes.
   # Consider adding --depth 1 maybe?
@@ -608,6 +612,7 @@ def usage(msgarg):
     -J    run cmake steps serially (default is in parallel)
     -G    include llgo when setting up repo
     -P    include polly when setting up repo
+    -L    include libcxx when setting up repo
     -F    run 'git fetch' or 'svn update' in subvolume
           before creating snapshot
     -M    disable BTRFS (assume regular dirs). Implies -c.
@@ -640,10 +645,10 @@ def parse_args():
   global flag_scm_flavor, flag_cmake_type, flag_include_llgo
   global flag_do_fetch, flag_include_tools, flag_include_polly, flag_parallel
   global flag_binutils_build, flag_run_ninja, llvm_rw_svn, flag_user
-  global ssdroot, flag_binutils_location, flag_btrfs
+  global ssdroot, flag_binutils_location, flag_btrfs, flag_include_libcxx
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "DPGJB:S:FTMXqcdnNs:r:")
+    optlist, args = getopt.getopt(sys.argv[1:], "DPGJB:S:FTLMXqcdnNs:r:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -678,6 +683,8 @@ def parse_args():
       flag_include_llgo = True
     elif opt == "-P":
       flag_include_polly = True
+    elif opt == "-L":
+      flag_include_libcxx = True
     elif opt == "-F":
       flag_do_fetch = True
     elif opt == "-J":
