@@ -1218,7 +1218,6 @@ function gccgotrunkconfig() {
 
   echo "script is:"
   cat $TF
-
   sh $TF
   rm $TF
 }
@@ -1228,15 +1227,19 @@ function gccgotrunkconfigdebug() {
 }
 
 function gccgo_build_and_test() {
-  echo "make -j20 all 1> berr.txt 2>&1"
-  make -j20 all 1> berr.txt 2>&1
+  local NP=`nproc`
+  if [ $NP -gt 20 ]; then
+    NP=20
+  fi
+  echo "make -j${NP} all 1> berr.txt 2>&1"
+  make -j${NP} all 1> berr.txt 2>&1
   if [ $? != 0 ]; then
     echo "** build failed, skipping tests"
     startemacs berr.txt
     return
   fi
-  echo "make -j20 check-go 1> terr.txt 2>&1"
-  make -j20 check-go 1> terr.txt 2>&1
+  echo "make -j${NP} check-go 1> terr.txt 2>&1"
+  make -j${NP} check-go 1> terr.txt 2>&1
   if [ $? != 0 ]; then
     echo "****************"
     echo "****************"

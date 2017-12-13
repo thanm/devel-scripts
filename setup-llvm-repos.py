@@ -3,7 +3,7 @@
 
 Creates BTRFS subvolume with trunk git-on-svn client, plus binutils, then
 runs cmake to set up ninja build. More details at:
-
+o
    http://llvm.org/docs/GettingStarted.html
    http://llvm.org/docs/DeveloperPolicy.html
 
@@ -450,8 +450,9 @@ def emit_rebuild_scripts(flav, targdir):
       wf.write("cd %s || exit 9\n" % bpath)
       wf.write("cd ../binutils-build\n")
       wf.write("echo ... running make in binutils-build\n")
-      wf.write("make -j40 1> ../build.%s/.binutils-build.err 2>&1\n" % flav)
-      wf.write("make -j40 all-gold 1> "
+      wf.write("NP=`nproc`\n")
+      wf.write("make -j${NP} 1> ../build.%s/.binutils-build.err 2>&1\n" % flav)
+      wf.write("make -j${NP} all-gold 1> "
                "../build.%s/.binutils-build.err 2>&1\n" % flav)
       wf.write("cd ../build.%s\n" % flav)
       wf.write("echo ... running ninja build\n")
@@ -561,8 +562,9 @@ def do_build():
     dochdir(flag_subvol)
   if flag_binutils_build:
     dochdir("binutils-build")
-    doscmd("make -j40")
-    doscmd("make -j40 all-gold")
+    nworkers = multiprocessing.cpu_count()
+    doscmd("make -j%d" % nworkers)
+    doscmd("make -j%d all-gold" % nworkers)
     dochdir("..")
   else:
     u.verbose(0, "... binutils build stubbed out")
