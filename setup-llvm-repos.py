@@ -77,8 +77,11 @@ flag_parallel = True
 # Place from which to copy binutils
 flag_binutils_location = None
 
-# SSD root
+# SSD root or root dir
 ssdroot = None
+
+# If false, no btrfs stuff
+flag_btrfs = True
 
 # Various repositories
 llvm_rw_svn = "https://REPLACE_WITH_USER@llvm.org/svn/llvm-project"
@@ -207,7 +210,10 @@ def do_subvol_create():
     u.verbose(1, "subvolume %s already exists, skipping creation" % sv)
     return
   here = os.getcwd()
-  docmd("snapshotutil.py mkvol %s" % flag_subvol)
+  if flag_btrfs:
+    docmd("snapshotutil.py mkvol %s" % flag_subvol)
+  else:
+    docmd("mkdir %s" % flag_subvol)
   dochdir(ssdroot)
   dochdir(flag_subvol)
   top = "%s/%s" % (ssdroot, flag_subvol)
@@ -530,7 +536,8 @@ def do_snapshot_create():
   """Create new LLVM trunk snapshot."""
   if flag_do_fetch:
     fetch_in_volume()
-  docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
+  if flag_btrfs:
+    docmd("snapshotutil.py mksnap %s %s" % (flag_subvol, flag_snapshot))
 
 
 def do_configure():
@@ -603,6 +610,7 @@ def usage(msgarg):
     -P    include polly when setting up repo
     -F    run 'git fetch' or 'svn update' in subvolume
           before creating snapshot
+    -M    disable BTRFS (assume regular dirs). Implies -c.
 
     Example 1: creates new subvolume 'llvm-trunk', no build or configure
 
@@ -632,10 +640,10 @@ def parse_args():
   global flag_scm_flavor, flag_cmake_type, flag_include_llgo
   global flag_do_fetch, flag_include_tools, flag_include_polly, flag_parallel
   global flag_binutils_build, flag_run_ninja, llvm_rw_svn, flag_user
-  global ssdroot, flag_binutils_location
+  global ssdroot, flag_binutils_location, flag_btrfs
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "DPGJB:S:FTXqcdnNs:r:")
+    optlist, args = getopt.getopt(sys.argv[1:], "DPGJB:S:FTMXqcdnNs:r:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -649,6 +657,9 @@ def parse_args():
       flag_run_ninja = False
     elif opt == "-c":
       flag_configure = True
+    elif opt == "-M":
+      flag_configure = True
+      flag_btrfs = False
     elif opt == "-B":
       if os.path.exists(arg) and os.path.isdir(arg):
         u.verbose(1, "drawing binutils from %s" % arg)
@@ -686,6 +697,8 @@ def parse_args():
     usage("specify subvol name with -r")
   if flag_snapshot and not flag_subvol:
     usage("specify subvol name with -r")
+  if not flag_btrfs and flag_snapshot:
+    usage("can't use -s with -M")
   lines = u.docmdlines("whoami")
   flag_user = lines[0]
   if flag_user == "root":
@@ -702,7 +715,10 @@ def parse_args():
 
   # Set ssd root
   here = os.getcwd()
-  ssdroot = u.determine_btrfs_ssdroot(here)
+  if flag_btrfs:
+    ssdroot = u.determine_btrfs_ssdroot(here)
+  else:
+    ssdroot = here
 
 
 #
