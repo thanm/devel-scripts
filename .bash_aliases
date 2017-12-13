@@ -1360,6 +1360,41 @@ function emacsbranched() {
   fi
 }
   
+function emacshash() {
+  local HASH="$1"
+  local BN=""
+  local FILES=""
+  local REMOTE=""
+  local WORKROOT=""
+  local SETGOROOT=false
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+
+  # Determine files for this hash
+  FILES=`git diff --name-only ${HASH}^ ${HASH}`
+
+  # Which repo?
+  REMOTE=`git remote -v | head -1 | expand | tr -s " " | cut -f2 -d" "`
+  #echo remote is $REMOTE
+
+  WORKROOT=`git rev-parse --show-toplevel`
+
+  if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
+    SETGOROOT=true
+  fi
+
+  pushd $WORKROOT
+  if [ $SETGOROOT = "true" ]; then
+    GOROOT=`pwd` startemacs $FILES
+  fi
+  popd
+}
+  
 
 #......................................................................
 
@@ -1474,6 +1509,9 @@ alias adbpushlib=adb_push_to_lib
 
 # llvm stuff
 alias llvmpath=addllvmbintopath
+
+# Go stuff
+alias runalldotbash="bash all.bash 1> /tmp/all.bash.err.txt 2>&1 ; startemacs /tmp/all.bash.err.txt"
 
 # valgrind
 alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=massif.out --tool=massif"
