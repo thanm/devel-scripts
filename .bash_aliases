@@ -419,6 +419,7 @@ function llvm-mkid() {
     find llvm -name "*.def" > deffiles.txt
     find llvm -name "*.td" > tdfiles.txt
     find llvm -name "*.ll" > llfiles.txt
+    find llvm -name "*.cmake" -print -o -name "CMakeLists.txt" -print > cmakefiles.txt
   fi
 }
 
@@ -764,6 +765,32 @@ function removeFromPathIfPresent() {
   export PATH="$newpath"
 }
 
+function removeFromLdLibraryPathIfPresent() {
+  local d="$1"
+  local p=""
+  local pd=""
+  local sep=""
+  local newpath=""
+
+  if [ -z "$d" ]; then
+    echo "error: supply an arg to removeFromLdLibraryPathIfPresent"
+    return
+  fi
+
+  pd=`echo $LD_LIBRARY_PATH | tr ':' ' '`
+  for p in $pd
+  do
+     if [ "${p}" != "$d" ]; then
+       newpath="${newpath}${sep}${p}"
+       sep=":"
+     else
+       echo "$d removed from LD_LIBRARY_PATH"
+     fi
+  done
+
+  export LD_LIBRARY_PATH="$newpath"
+}
+
 function addllvmbintopath() {
   local BD=`pwd`/bin
   local LD=../llvm
@@ -782,6 +809,30 @@ function addllvmbintopath() {
   fi
   echo "Starting subshell with $P added to PATH..."
   PATH=$BD:$PATH bash
+}
+
+function prependToLdLibraryPathIfNotAlreadyPresent () {
+  local D="$1"
+  local col=":"
+  if [ -z "$LD_LIBRARY_PATH" ]; then
+    col=""
+  fi	
+  case ":$LD_LIBRARY_PATH:" in
+    *":${D}:"*) echo "dir $D already in LD_LIBRARY_PATH" ;;
+    *) echo "dir $D prepended to LD_LIBRARY_PATH" ; export LD_LIBRARY_PATH="${D}${col}${LD_LIBRARY_PATH}" ;;
+  esac
+}
+
+function appendToLdLibraryPathIfNotAlreadyPresent () {
+  local D=$1
+  local col=":"
+  if [ -z "$LD_LIBRARY_PATH" ]; then
+    col=""
+  fi	
+  case ":$LD_LIBRARY_PATH:" in
+    *":$D:"*) echo "dir $D already in LD_LIBRARY_PATH" ;;
+    *) echo "dir $D appended to LD_LIBRARY_PATH" ; export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${col}${D}" ;;
+  esac
 }
 
 function show_dpkg_contents {
@@ -880,7 +931,7 @@ function setgccgoroot() {
   fi
 
   echo "$MYGCCGOROOT/bin $which to path"
-  export LD_LIBRARY_PATH="$MYGCCGOROOT/lib64"
+  prependToLdLibraryPathIfNotAlreadyPresent "$MYGCCGOROOT/lib64"
 }
 
 function unsetgccgoroot() {
@@ -894,7 +945,8 @@ function unsetgccgoroot() {
   removeFromPathIfPresent "$MYGCCGOROOT/bin"
 
   # Extract from LD_LIBRARY_PATH
-
+  removeFromLdLibraryPathIfPresent "$MYGCCGOROOT/lib64"
+  
   echo "Unsetting MYGCCGOROOT"
   unset MYGCCGOROOT
 }
@@ -1327,16 +1379,17 @@ function emacsbranched() {
   BN=`git status -sb | head -1 | cut -c3- | cut -f1 -d.`
   echo branch is $BN
 
-  # Determine files different from master
+  # Determine files that have changed since the branch
+  # forked off from master.
   if [ $BN != "master" ]; then
-    FILES=`git diff --name-only master $BN`
+    FORKPOINT=`git merge-base $BN master`
+    FILES=`git diff --name-only $FORKPOINT $BN`
     FROMROOT=true
     #echo "file list: $FILES"
   fi
   FILES="$FILES $WHICH"
-   
 
-  # Which repo?
+# Which repo?
   REMOTE=`git remote -v | head -1 | expand | tr -s " " | cut -f2 -d" "`
   #echo remote is $REMOTE
 

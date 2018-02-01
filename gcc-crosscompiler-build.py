@@ -56,7 +56,8 @@ legal_arches = {"aarch64-linux-android": "arm64",
                 "x86_64-linux-gnu": "x86_64",
                 "x86_64": "x86_64",
                 "x86_64-linux-android": "x86_64",
-                "mips64el-linux-android": "mips64el"}
+                "mips64el-linux-android": "mips64el",
+                "mips64-linux": "mips64"}
 
 # name of subdir containing gcc (inferred)
 flag_gcc_subdir = None
