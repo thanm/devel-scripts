@@ -161,7 +161,7 @@ def perform():
 
   pool = None
   if flag_parallel:
-    nworkers = (multiprocessing.cpu_count())-1
+    nworkers = multiprocessing.cpu_count()-1
     pool = multiprocessing.Pool(processes=nworkers)
 
   # Build
