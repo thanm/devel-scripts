@@ -1305,6 +1305,26 @@ function gccgo_build_and_test() {
   startemacs berr.txt terr.txt
 }
 
+function gccgo_build_and_install() {
+  local NP=`nproc`
+  echo "make -j${NP} all 1> berr.txt 2>&1"
+  make -j${NP} all 1> berr.txt 2>&1
+  if [ $? != 0 ]; then
+    echo "** build failed, skipping tests"
+    startemacs berr.txt
+    return
+  fi
+  echo "make -j${NP} install 1> ierr.txt 2>&1"
+  make -j${NP} install 1> ierr.txt 2>&1
+  if [ $? != 0 ]; then
+    echo "** install FAILED "
+    startemacs berr.txt ierr.txt
+    return
+  fi
+  echo "result: PASS"
+  startemacs berr.txt ierr.txt
+}
+
 function binutilstrunkconfig() {
   local ARGS="$*"
   local ARG=""
@@ -1522,6 +1542,7 @@ alias android_python_lint=pep8
 # Git
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
+alias grbw="echo git codereview rebase-work; git codereview rebase-work"
 alias gb="git branch"
 alias gbl="git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
 alias gca="echo git commit --amend ; git commit --amend"
