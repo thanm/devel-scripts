@@ -3,7 +3,7 @@
 
 Creates BTRFS subvolume with trunk git-on-svn client, plus binutils, then
 runs cmake to set up ninja build. More details at:
-o
+
    http://llvm.org/docs/GettingStarted.html
    http://llvm.org/docs/DeveloperPolicy.html
 

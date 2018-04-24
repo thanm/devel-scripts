@@ -10,6 +10,7 @@ patch.
 import getopt
 import os
 import re
+import stat
 import sys
 
 import script_utils as u
@@ -162,7 +163,14 @@ def copy_file(srcf, destf):
   ddir = os.path.dirname(destf)
   if not os.path.exists(ddir):
     docmd("mkdir -p %s" % ddir)
+  if os.path.exists(destf):
+    os.chmod(destf, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
   docmd("cp %s %s" % (srcf, destf))
+
+
+def write_protect(destf):
+  """Write-protect a file we just copied into the archive."""
+  os.chmod(destf, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
 
 def emit_modified_files():
@@ -172,15 +180,17 @@ def emit_modified_files():
   if flag_oldsha:
     showsha = flag_oldsha
   for afile, op in modifications.iteritems():
+    destf = "%s/%s" % (flag_destdir, afile)
     if op == "A" or op == "M":
-      copy_file(afile, "%s/%s" % (flag_destdir, afile))
+      copy_file(afile, destf)
+      write_protect(destf)
       nf += 1
     if op == "M":
       toshow = afile
       if afile in rev_renames:
         toshow = rev_renames[afile]
       docmdout("git show -M %s:%s" % (showsha, toshow),
-               "%s/%s.BASE" % (flag_destdir, afile))
+               "%s.BASE" % destf)
   return nf
 
 

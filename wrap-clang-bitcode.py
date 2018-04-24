@@ -54,11 +54,8 @@ flag_echo = True
 # Dry run mode
 flag_dryrun = False
 
-# Path to clang, llc, opt, llvm-dis
-flag_clangbin = None
-flag_llcbin = None
-flag_optbin = None
-flag_disbin = None
+# Paths to clang, llc, opt, llvm-dis
+toolpaths = {"clang":"/unknownpath", "llc":"/unknownpath", "opt":"/unknownpath", "llvm-dis":"/unknownpath"}
 
 # Keep temp files around
 flag_preserve_bitcode = False
@@ -105,7 +102,7 @@ def disdump(producer):
   """Dump a bitcode file to a .ll file."""
   dumpfile = emitted_path(producer, "ll")
   bcfile = emitted_path(producer, "bc")
-  args = ("%s %s -o %s " % (flag_disbin, bcfile, dumpfile))
+  args = ("%s %s -o %s " % (toolpaths["llvm-dis"], bcfile, dumpfile))
   rc = docmdnf(args)
   if rc != 0:
     u.verbose(1, "llvm-dis returns %d" % rc)
@@ -114,18 +111,18 @@ def disdump(producer):
 
 def locate_binaries(clangcmd):
   """Locate executables of interest."""
-  global flag_clangbin, flag_llcbin, flag_optbin, flag_disbin
+  global toolpaths
 
   # Figure out what to invoke
-  flag_clangbin = clangcmd
-  reg = re.compile("^.*/.*$")
+  u.verbose(1, "clangcmd is %s" % clangcmd)
+  toolpaths["clang"] = clangcmd
+  reg = re.compile("(^.*)/(.*)$")
   m = reg.match(clangcmd)
   bindir = None
+  clcmd = None
   if m:
-    bindir = os.path.dirname(clangcmd)
-    flag_optbin = os.path.join(bindir, "opt")
-    flag_llcbin = os.path.join(bindir, "llc")
-    flag_disbin = os.path.join(bindir, "llvm-dis")
+    bindir = m.group(1)
+    clcmd = m.group(2)
   else:
     if not flag_dryrun:
       lines = u.docmdlines("which %s" % clangcmd)
@@ -133,23 +130,31 @@ def locate_binaries(clangcmd):
         u.error("which %s returned empty result" % clangcmd)
       clangbin = lines[0].strip()
       bindir = os.path.dirname(clangbin) + "/"
+      clcmd = os.path.basename(clangbin)
       u.verbose(1, "clang bindir is %s" % bindir)
     else:
       bindir = ""
-    flag_clangbin = "%s%s" % (bindir, clangcmd)
-    flag_optbin = "%sopt" % bindir
-    flag_llcbin = "%sllc" % bindir
-    flag_disbin = "%sllvm-dis" % bindir
+  toolpaths["clang"] = os.path.join(bindir, clcmd)
+  toolpaths["opt"] = os.path.join(bindir, "opt")
+  toolpaths["llc"] = os.path.join(bindir, "llc")
+  toolpaths["llvm-dis"] = os.path.join(bindir, "llvm-dis")
+
   if flag_dryrun:
     return
 
+  # If clang is versioned, then version llvm-dis
+  reg2 = re.compile("^.+(\-\d\.\d)$")
+  m2 = reg2.match(clangcmd)
+  if m2:
+    toolpaths["llvm-dis"] = os.path.join(bindir, "llvm-dis%s" % m2.group(1))
+
   # Check for existence and executability
-  tocheck = [flag_clangbin, flag_optbin, flag_llcbin, flag_disbin]
+  tocheck = ["clang", "opt", "llc", "llvm-dis"]
   for tc in tocheck:
     if not os.path.exists(tc):
-      u.error("can't access binary %s" % tc)
+      u.warning("can't access binary %s" % tc)
     if not os.access(tc, os.X_OK):
-      u.error("no execute permission on binary %s" % tc)
+      u.warning("no execute permission on binary %s" % tc)
 
 
 def setup():
@@ -179,7 +184,7 @@ def perform():
   # Emit post-clang bitcode
   clang_bcfile = emitted_path("clang", "bc")
   args = ("%s -emit-llvm -o %s -Xclang -disable-llvm-passes "
-          "%s" % (flag_clangbin, clang_bcfile,
+          "%s" % (toolpaths["clang"], clang_bcfile,
                   " ".join(flag_clang_opts)))
   rc = docmdnf(args)
   if rc != 0:
@@ -189,21 +194,30 @@ def perform():
 
   # Emit post-opt bitcode
   opt_bcfile = emitted_path("opt", "bc")
-  args = ("%s %s %s -o %s " % (flag_optbin, clang_bcfile,
+  if os.path.exists(toolpaths["opt"]):
+    args = ("%s %s %s -o %s " % (toolpaths["opt"], clang_bcfile,
                                " ".join(flag_opt_opts), opt_bcfile))
-  rc = docmdnf(args)
-  if rc != 0:
-    u.verbose(1, "opt cmd returns %d" % rc)
-    return
-  disdump("opt")
+    rc = docmdnf(args)
+    if rc != 0:
+      u.verbose(1, "opt cmd returns %d" % rc)
+      return
+    disdump("opt")
+  else:
+    u.verbose(0, "opt run stubbed out (unable to "
+              "access/run %s" % toolpaths["opt"])
 
   # Now run llc command
-  args = ("%s %s %s" % (flag_llcbin, opt_bcfile,
+  if os.path.exists(toolpaths["llc"]):
+    args = ("%s %s %s" % (toolpaths["llc"], opt_bcfile,
                         " ".join(flag_llc_opts)))
-  rc = docmdnf(args)
-  if rc != 0:
-    u.verbose(1, "llc cmd returns %d" % rc)
-    return
+    rc = docmdnf(args)
+    if rc != 0:
+      u.verbose(1, "llc cmd returns %d" % rc)
+      return
+  else:
+    u.verbose(0, "llc run stubbed out (unable to "
+              "access/run %s" % toolpaths["llc"])
+
 
   # Remove temps if we are done
   if not flag_preserve_bitcode:
@@ -287,7 +301,8 @@ def parse_args():
 
   locate_binaries(clangbin)
 
-  u.verbose(1, "clangbin: %s" % flag_clangbin)
+  u.verbose(1, "clangbin: %s" % toolpaths["clang"])
+  u.verbose(1, "llvm-dis: %s" % toolpaths["llvm-dis"])
   u.verbose(1, "llc options: %s" % " ".join(flag_llc_opts))
   u.verbose(1, "opt options: %s" % " ".join(flag_opt_opts))
   u.verbose(1, "clang args: %s" % " ".join(flag_clang_opts))
