@@ -1,5 +1,5 @@
 
-startemacsclient() {
+function startemacsclient() {
   if [ "x${OSFLAVOR}" = "xDarwin" ]; then
     emacsclient -n --socket=/tmp/emacs${AUID}/server $1 &
     disown $!
@@ -8,7 +8,7 @@ startemacsclient() {
   fi
 }
 
-startemacs() {
+function startemacs() {
   local em="$EDITOR"
   if [ -z "$EDITOR" ]; then
     em=emacs
@@ -17,18 +17,18 @@ startemacs() {
   disown $!
 }
 
-docmd() {
+function docmd() {
   echo "executing: $*"
   $*
 }
 
-setdeflocale() {
+function setdeflocale() {
   # I seem to need this only when chromoting... why?
   export LANG=en_US.UTF-8
   export LANGUAGE=en_US:
 }
 
-anyprogbash() {
+function anyprogbash() {
   local S="$1"
   anyprog.py "$S"
   declare -F | egrep "$S"
@@ -47,23 +47,23 @@ function format_process_for_btrfs() {
   echo then add entry to fstab: sudo emacs /etc/fstab
 }
 
-create_btrfs_subvolume() {
+function create_btrfs_subvolume() {
   local V=$1
   snapshotutil.py mkvol $V
 }
 
-create_btrfs_snapshot() {
+function create_btrfs_snapshot() {
   local FROM=$1
   local TO=$2
   snapshotutil.py mksnap $FROM $TO
 }
 
-remove_btrfs_snapshot() {
+function remove_btrfs_snapshot() {
   local SNAME=$1
   snapshotutil.py rmsnap $SNAME
 }
 
-remove_btrfs_subvolume() {
+function remove_btrfs_subvolume() {
   local VNAME=$1
   snapshotutil.py rmvol $VNAME
 }
@@ -361,7 +361,7 @@ function llvm-genfiles-flavor() {
     -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
-  local BUILDDIR=build.dbg
+  local BUILDDIR=build.opt
 
   if [ "$S" = "0" ]; then
     DOFILT=cat
@@ -414,12 +414,12 @@ function llvm-mkid() {
     echo "... running mkid in $LLVMROOT"
     mkid --files0-from cxxfiles0.txt
     rm -f cxxfiles0.txt mkfiles0.txt
-    popd 1> /dev/null
     echo "... ID file created in $LLVMROOT"
     find llvm -name "*.def" > deffiles.txt
     find llvm -name "*.td" > tdfiles.txt
     find llvm -name "*.ll" > llfiles.txt
     find llvm -name "*.cmake" -print -o -name "CMakeLists.txt" -print > cmakefiles.txt
+    popd 1> /dev/null
   fi
 }
 
@@ -1386,10 +1386,10 @@ function binutilstrunkconfig() {
 function emacsbranched() {
   local WHICH="$*"
   local BN=""
+  local RFILES=""
   local FILES=""
   local REMOTE=""
   local WORKROOT=""
-  local FROMROOT=false
 
   # In git?
   git status -sb 1> /dev/null 2>&1
@@ -1399,37 +1399,35 @@ function emacsbranched() {
   fi
 
   # Determine branch name
-  BN=`git status -sb | head -1 | cut -c3- | cut -f1 -d.`
+  BN=`git status -sb | head -1 | egrep -v 'no branch' | cut -c3- | cut -f1 -d.`
   echo branch is $BN
+
+  WORKROOT=`git rev-parse --show-toplevel`
 
   # Determine files that have changed since the branch
   # forked off from master.
-  if [ $BN != "master" ]; then
-    FORKPOINT=`git merge-base $BN master`
-    FILES=`git diff --name-only $FORKPOINT $BN`
-    FROMROOT=true
-    #echo "file list: $FILES"
+  if [ "$BN" != "" ]; then
+    if [ "$BN" != "master" ]; then
+      FORKPOINT=`git merge-base $BN master`
+      RFILES=`git diff --name-only $FORKPOINT $BN`
+      for RF in $RFILES
+      do
+        FILES="$FILES ${WORKROOT}/${RF}"
+      done	    
+    fi
   fi
   FILES="$FILES $WHICH"
 
-# Which repo?
+  # Which repo?
   REMOTE=`git remote -v | head -1 | expand | tr -s " " | cut -f2 -d" "`
   #echo remote is $REMOTE
-
-  WORKROOT=`git rev-parse --show-toplevel`
 
   if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
     export GOROOT=$WORKROOT
     echo GOROOT=$WORKROOT
   fi
 
-  if [ "$FROMROOT" = "yes" ]; then
-    pushd $WORKROOT
-  fi
   startemacs $FILES
-  if [ "$FROMROOT" = "yes" ]; then
-    popd
-  fi
   
   if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
     unset GOROOT
@@ -1470,7 +1468,80 @@ function emacshash() {
   fi
   popd
 }
+
+function emacsmod() {
+  local FILES=""
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+
+  # Collect modified files
+  FILES=`git status -s --untracked-files=no | cut -f3 -d" "`
+  if [ -z "$FILES" ]; then
+    echo "** can't find any modifed files, unable to proceed"
+    return
+  fi
   
+  startemacs $FILES
+}
+
+function runalldotbash() {
+  local GR=""
+  local HERE=`pwd`
+  local FILE=""
+  local HASH=""
+
+  GR=`go env GOROOT`
+  if [ $? != 0 ]; then
+    echo "** go env GOROOT failed"
+    return
+  fi	
+
+  # Go root set?
+  if [ -z "$MYGOROOT" ]; then
+    echo "warning, MYGOROOT not set"
+  fi
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+  HASH=`git rev-parse --short HEAD`
+  
+  # Check spot
+  if [ "$HERE" != "${GR}/src" ]; then
+    echo "** not in \${GOROOT}/src, can't run"
+    return
+  fi	
+
+  # Check script
+  if [ ! -x ./all.bash ]; then
+    echo "** no executable ./all.bash"
+    return
+  fi
+
+  # Decide where to put the results
+  FILE=`echo $GR | tr / _`
+  FILE=${SSDTMP}/tmp/all.bash.${FILE}.${HASH}.txt
+
+  # Echo, then run
+  echo "bash all.bash &> $FILE"
+  bash all.bash 1> $FILE 2>&1
+
+  startemacs $FILE
+}
+
+function ge_no_aslr() {
+  local ARGS="$*"
+  setarch `uname -m` -R emacs $ARGS &
+  disown $!
+}
 
 #......................................................................
 
@@ -1491,8 +1562,6 @@ alias show_image=eog
 alias markdown_viewer=retext
 alias show_pdf=evince
 alias copy_file_with_progress_bar=gcp
-alias gcctrunkconfigmaster="../gcc-trunk/configure --prefix=/ssd/gcc-trunk-master/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk-master/binutils-cross/bin/ld.gold"
-alias gcctrunkconfig2='../gcc-trunk/configure --prefix=/ssd/gcc-trunk/cross --enable-languages=c,c++,go --enable-libgo --disable-bootstrap --with-ld=/ssd/gcc-trunk/binutils-cross/bin/ld.gold CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g"'
 alias gcc_show_errno='gcc -E -xc - < /usr/include/errno.h  | cut -f2 -d\" | fgrep / | sort | uniq | xargs cat | egrep "define\s+E"'
 
 # Android
@@ -1516,7 +1585,7 @@ alias dumpdevlog=dump_device_log
 # Emulator in prebuilts
 alias run_arm64_emulator=run_prebuilts_arm64_emulator
 
-# Gubuntu
+# Linux / Debian
 alias linuxpackagesearch='apt-cache search'
 alias displaylinuxpackageversion='apt-cache policy'
 alias showlinuxpackagecontents=show_dpkg_contents
@@ -1525,6 +1594,7 @@ alias xtsmall='xterm -sb -fn 7x13 -sl 5000'
 alias xtmed='xterm -sb -fn 9x15 -sl 5000'
 alias xtbig='xterm -sb -fn 10x20 -sl 5000'
 alias bash_no_aslr='setarch `uname -m` -R bash'
+alias screendumparea='gnome-screenshot -a'
 
 # BTRFS
 alias show_fs_type='stat -f --printf="%T\n" .'
@@ -1543,6 +1613,7 @@ alias android_python_lint=pep8
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias grbw="echo git codereview rebase-work; git codereview rebase-work"
+alias grbcont="echo git rebase --continue; git rebase --continue"
 alias gb="git branch"
 alias gbl="git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
 alias gca="echo git commit --amend ; git commit --amend"
@@ -1586,9 +1657,6 @@ alias adbpushlib=adb_push_to_lib
 
 # llvm stuff
 alias llvmpath=addllvmbintopath
-
-# Go stuff
-alias runalldotbash="bash all.bash 1> /tmp/all.bash.err.txt 2>&1 ; startemacs /tmp/all.bash.err.txt"
 
 # valgrind
 alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=massif.out --tool=massif"
