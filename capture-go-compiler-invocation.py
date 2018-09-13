@@ -1,13 +1,11 @@
 #!/usr/bin/python
 """Extracts compile commands from go build output.
 
-Reads either stdin or a specified input file, then post-processes to
-identify go/gccgo compiler invocations. Output is post-processed to
-create a script that can be invoked to rerun the compile, or
-optionally is examined to select out the gccgo compiler invocation.
-Useful for doing compiler reruns and re-invocations under
-the debugger.
-
+Reads either stdin or a specified input file, then post-processes to identify
+go/gccgo compiler invocations. Output is post-processed to create a script that
+can be invoked to rerun the compile, or optionally is examined to select out the
+gccgo compiler invocation. Useful for doing compiler reruns and re-invocations
+under the debugger.
 """
 
 import getopt
@@ -32,6 +30,12 @@ flag_relocate = None
 
 # Set up for gccgo debugging compilation of specified go src file
 flag_gccgo_gdb = None
+
+# Set to true to emit cpuprofile code
+flag_cpuprofile = False
+
+# Emit "-c 1" to compile commands to disable parallel backend
+flag_nopar = False
 
 # Captures first gccgo compilation line
 gccgo_invocation = None
@@ -60,21 +64,38 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
   args = []
   regparen = re.compile(r"^\-Wl,\-[\(\)]$")
   regsrc = re.compile(r"^(\S+)\.go$")
+  regpar = re.compile(r"^\-c=\d+$")
   raw_args = shlex.split(argstring)
   numraw = len(raw_args)
   gosrcfiles = {}
   srcfiles = []
   for idx in range(0, numraw):
     arg = raw_args[idx]
+    if regpar.match(arg):
+      continue
     mp = regparen.match(arg)
     if mp:
       arg = "'%s'" % arg
     if regsrc.match(arg):
       gosrcfiles[arg] = 1
       srcfiles.append(arg)
+    if not arg:
+      arg = "\"\""
     args.append(arg)
 
-  outf.write("${%s} %s $* \n" % (driver_var, " ".join(args)))
+  cparg = ""
+  if flag_cpuprofile:
+    outf.write("pcount=`expr $pcount + 1`\n")
+    outf.write("parg=""\n")
+    outf.write("if [ \"$CPUPROFILE\" != \"\" ]; then\n")
+    outf.write("  parg=-cpuprofile=$CPUPROFILE/p${pcount}.p\n")
+    outf.write("fi\n")
+    cparg = " $parg"
+  nparg = ""
+  if flag_nopar:
+    nparg = " -c 1"
+  outf.write("${%s} %s %s $* %s \n" % (driver_var, cparg,
+                                       nparg, " ".join(args)))
   if gosrcfiles:
     u.verbose(0, "extracted compile cmd for: %s" % " ".join(srcfiles))
   if flag_gccgo_gdb and flag_gccgo_gdb in gosrcfiles:
@@ -86,6 +107,7 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
     gccgo_location = curdir
   outf.write("if [ $? != 0 ]; then\n")
   outf.write("  echo 'error: %s compilation failed'\n" % " ".join(srcfiles))
+  outf.write("  exit 1\n")
   outf.write("fi\n")
 
   if flag_single:
@@ -103,8 +125,13 @@ def perform_extract(inf, outf):
   regcd = re.compile(r"^cd (\S+)\s*$")
   regar = re.compile(r"^ar .+$")
   regcp = re.compile(r"^cp (\S+) (\S+)$")
+  regmkdir = re.compile(r"^mkdir .+$")
+  regcat = re.compile(r"^cat >\$WORK.*$")
+  regeof = re.compile(r"^EOF\s*$")
 
   outf.write("#!/bin/sh\n")
+  if flag_cpuprofile:
+    outf.write("pcount=0\n")
 
   cdir = "."
   while True:
@@ -129,6 +156,22 @@ def perform_extract(inf, outf):
     if mcd:
       cdir = mcd.group(1)
       outf.write("cd %s\n" % cdir)
+      continue
+    mmkdir = regmkdir.match(line)
+    if mmkdir:
+      outf.write(line)
+      continue
+    mcat = regcat.match(line)
+    if mcat:
+      while True:
+        line = inf.readline()
+        if not line:
+          u.error("fatal: end of file while looking for EOF tag")
+        u.verbose(2, "line is %s" % line.strip())
+        meof = regeof.match(line)
+        if meof:
+          u.verbose(2, "seen EOF ==")
+          break
       continue
     mar = regar.match(line)
     if mar:
@@ -276,6 +319,9 @@ def usage(msgarg):
     -R X  relocate WORK directory to local dir X (overwrites X)
     -G Y  set up for gccgo debugging for source file 'Y'; reruns compile
           with -v to capture args and emits .gdbinit, etc.
+    -C    augment output script with -cpuprofile cmds (set CPUPROFILE
+          to tgt dir prior to executing script)
+    -N    add "-c 1" to all compile commands captured
 
     Examples:
 
@@ -298,10 +344,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_infile, flag_outfile, flag_single
-  global flag_gccgo_gdb, flag_relocate
+  global flag_gccgo_gdb, flag_relocate, flag_cpuprofile, flag_nopar
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:S")
+    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:CSN")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -315,9 +361,13 @@ def parse_args():
       flag_single = True
     elif opt == "-G":
       flag_gccgo_gdb = arg
+    elif opt == "-C":
+      flag_cpuprofile = True
+    elif opt == "-N":
+      flag_nopar = True
     elif opt == "-R":
       flag_relocate = arg
-      if flag_relocate[0] != '/':
+      if flag_relocate[0] != "/":
         flag_relocate = os.path.join(os.getcwd(), flag_relocate)
     elif opt == "-i":
       if flag_infile:

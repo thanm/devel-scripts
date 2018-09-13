@@ -81,8 +81,18 @@ def docmdout(cmd, outfile):
 
 def grabaddrsize(line, func):
   """Grab address and size from objdump line if sym matches."""
-  regexes = [re.compile(r"^(\S+)\s.+\s(\S+)\s+\.hidden\s+(\S+)$"),
-             re.compile(r"^(\S+)\s.+\s(\S+)\s+(\S+)$")]
+  #
+  # ELF symtab examples:
+  #
+  # 000000000052b410 l     F .text    0000000000000010   .hidden stat64
+  # 000000000000e990 g     F .text    0000000000000008   _Unwind_SetIP
+  #
+  # Dynamic table examples:
+  #
+  # 000000000000e990 g    DF .text    0000000000000008  GCC_3.0 _Unwind_SetIP
+  # 0000000000520c70 g    DF .text    0000000000000043  Base    sinl
+  #
+  regexes = [re.compile(r"^(\S+)\s.+\.text\s+(\S+)\s+.+\s+(\S+)$")]
   hexstaddr = None
   hexsize = None
   for r in regexes:
@@ -100,27 +110,56 @@ def grabaddrsize(line, func):
   return (hexstaddr, hexsize)
 
 
+def has_dynamic_section(tgt):
+  """Figure out if a given executable has a dynamic section."""
+  u.verbose(1, "running objdump -h %s" % tgt)
+  lines = u.docmdlines("objdump -h %s" % tgt)
+  dreg = re.compile(r"^\s*\d+\s+\.dynamic\s.+$")
+  for line in lines:
+    m = dreg.match(line)
+    if m:
+      u.verbose(1, "%s has .dynamic section" % tgt)
+      return True
+  u.verbose(1, "%s does not have a .dynamic section" % tgt)
+  return False
+
+
+def grab_addr_from_symtab(func, tgt):
+  """Grab starting address and size from ELF symtab or dynsym."""
+  flavs = ["-t"]
+  if has_dynamic_section(tgt):
+    flavs.append("-T")
+  staddr = 0
+  enaddr = 0
+  for flav in flavs:
+    u.verbose(1, "looking for %s in output of "
+              "objdump %s %s" % (func, flav, tgt))
+    lines = u.docmdlines("objdump %s %s" % (flav, tgt))
+    hexstaddr = None
+    hexsize = None
+    for line in lines:
+      hexstaddr, hexsize = grabaddrsize(line, func)
+      if hexstaddr:
+        break
+    if not hexstaddr:
+      continue
+    try:
+      staddr = int(hexstaddr, 16)
+      size = int(hexsize, 16)
+      enaddr = staddr + size
+    except ValueError:
+      u.verbose(0, "... malformed staddr/size (%s, %s) "
+                "for %s, skipping" % (hexstaddr, hexsize, func))
+      return 0, 0
+  return staddr, enaddr
+
+
 def disas(func, tgt):
   """Disassemble a specified function."""
-  u.verbose(1, "looking for %s in output of objdump -t %s" % (func, tgt))
-  lines = u.docmdlines("objdump -t %s" % tgt)
-  hexstaddr = None
-  hexsize = None
-  for line in lines:
-    hexstaddr, hexsize = grabaddrsize(line, func)
-    if hexstaddr:
-      break
-  if not hexstaddr:
+  staddr, enaddr = grab_addr_from_symtab(func, tgt)
+  if staddr == 0:
     u.verbose(0, "... could not find %s in "
               "output of objdump, skipping" % func)
-    return
-  try:
-    staddr = int(hexstaddr, 16)
-    size = int(hexsize, 16)
-    enaddr = staddr + size
-  except ValueError:
-    u.verbose(0, "... malformed staddr/size (%s, %s) "
-              "for %s, skipping" % (hexstaddr, hexsize, func))
     return
   cmd = ("objdump --no-show-raw-insn --wide -dl "
          "--start-address=0x%x "

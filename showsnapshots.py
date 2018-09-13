@@ -110,7 +110,7 @@ def examine_ssdroot(ssdroot):
 
   # Pattern we're looking for in the btrfs output
   matcher = re.compile(r"^ID \d+ gen \d+ top level \d+ "
-                       r"parent_uuid (\S+) uuid (\S+) path (\S+)\s*")
+                       r"parent_uuid\s+(\S+)\s+uuid (\S+) path (\S+)\s*")
 
   # Run through all of the lines:
   for line in lines:

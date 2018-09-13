@@ -16,10 +16,9 @@ def examine(afile):
 
   # Handle archives
   objfile = afile
-  isarch = re.compile(r"^.+\.a$")
-  if isarch.match(afile):
-    # Extract
-    lines = u.docmdlines("ar t %s" % afile, True)
+  lines = u.docmdlines("ar t %s" % afile, True)
+  if lines:
+    # Extract elem from archive
     if not lines:
       u.warning("skipping %s, doesn't appear to be an archive" % afile)
       return
@@ -32,11 +31,13 @@ def examine(afile):
     objfile = elem
 
   # Handle objects
-  rc = u.docmdnf("objcopy -O binary --only-section=.go_export "
-                 "--set-section-flags .go_export=alloc %s "
-                 "go_export.txt" % objfile)
+  cmd = ("objcopy -O binary --only-section=.go_export "
+         "--set-section-flags .go_export=alloc %s "
+         "go_export.txt" % objfile)
+  rc = u.docmdnf(cmd)
   if rc:
-    u.warning("skipping %s, can't extract export data" % objfile)
+    u.warning("skipping %s, can't extract export "
+              "data (cmd failed: %s)" % (objfile, cmd))
     return
   try:
     inf = open("go_export.txt", "rb")

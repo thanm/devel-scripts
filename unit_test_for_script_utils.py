@@ -5,6 +5,7 @@
 
 import tempfile
 import unittest
+import sys
 
 import script_utils as u
 
@@ -139,6 +140,14 @@ class TestScriptUtilsMethods(unittest.TestCase):
     self.assertTrue(b4 == None)
     b5 = u.hr_size_to_bytes("44Z")
     self.assertTrue(b5 == None)
+    hr1 = u.bytes_to_hr_size(13)
+    self.assertTrue(hr1 == "13 bytes")
+    hr2 = u.bytes_to_hr_size(1057)
+    self.assertTrue(hr2 == "1.0KB")
+    hr3 = u.bytes_to_hr_size(7877879)
+    self.assertTrue(hr3 == "7.5MB")
+    hr4 = u.bytes_to_hr_size(97537877879)
+    self.assertTrue(hr4 == "90.8GiB")
 
   def test_trim_perf_report(self):
     u.increment_verbosity()

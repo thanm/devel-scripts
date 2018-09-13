@@ -60,10 +60,16 @@ toolpaths = {"clang":"/unknownpath", "llc":"/unknownpath", "opt":"/unknownpath",
 # Keep temp files around
 flag_preserve_bitcode = False
 
+# Tag result files.
+flag_ptag = None
+
 # Options to pass to llc, opt, clang
 flag_clang_opts = []
 flag_llc_opts = []
 flag_opt_opts = []
+
+# If set, pass -O options to llc and opt
+flag_pass_olevel = False
 
 # Hash of command line args
 arghash = None
@@ -71,8 +77,13 @@ arghash = None
 # Base name of input src file (would be "./a/abc" if input is "./a/abc.c")
 basename = None
 
-# Args passed to clang that we pass on to opt/llc
-passargs = {"-O": 1, "-O0": 1, "-O1": 1, "-O2": 1, "-O3": 1}
+# Args passed to clang that we pass on to opt/llc if -T specified. These are
+# expressed as regex's.
+passargs = {r"^\-O$": 1,
+            r"^\-O\d$": 1}
+
+# Args that need to be rewritten/translated.
+transargs = {r"^\-march=(\S+)$": "-mcpu=%s"}
 
 # temp files generated
 tempfiles = {}
@@ -90,8 +101,11 @@ def docmdnf(cmd):
 def emitted_path(producer, ext):
   """Convert bitcode path to src path."""
   em = None
+  b = basename
+  if flag_ptag:
+    b = "%s.%s" % (basename, flag_ptag)
   if flag_preserve_bitcode:
-    return "%s.%s.%s" % (basename, producer, ext)
+    return "%s.%s.%s" % (b, producer, ext)
   else:
     em = "/tmp/%s.%s.%s.%s" % (arghash, basename, producer, ext)
     tempfiles[em] = 1
@@ -151,10 +165,11 @@ def locate_binaries(clangcmd):
   # Check for existence and executability
   tocheck = ["clang", "opt", "llc", "llvm-dis"]
   for tc in tocheck:
-    if not os.path.exists(tc):
-      u.warning("can't access binary %s" % tc)
-    if not os.access(tc, os.X_OK):
-      u.warning("no execute permission on binary %s" % tc)
+    path = toolpaths[tc]
+    if not os.path.exists(path):
+      u.warning("can't access binary %s at path %s" % (tc, path))
+    if not os.access(path, os.X_OK):
+      u.warning("no execute permission on binary %s" % path)
 
 
 def setup():
@@ -238,6 +253,7 @@ def usage(msgarg):
     -e    show commands being invoked
     -D    dry run (echo cmds but do not execute)
     -p    reuse/preserve bitcode files
+    -P T  tag preserved files with tag 'T'
     -L X  pass option X to llc
     -O Y  pass option Y to opt
 
@@ -248,9 +264,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_preserve_bitcode, flag_dryrun, flag_echo, arghash
+  global flag_ptag, flag_pass_olevel
 
   try:
-    optlist, _ = getopt.getopt(sys.argv[1:], "depDL:O:")
+    optlist, _ = getopt.getopt(sys.argv[1:], "depDTL:O:P:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -262,10 +279,14 @@ def parse_args():
       flag_echo = True
     elif opt == "-D":
       flag_dryrun = True
+    elif opt == "-T":
+      flag_pass_olevel = True
     elif opt == "-L":
       flag_llc_opts.append(arg)
     elif opt == "-O":
       flag_opt_opts.append(arg)
+    elif opt == "-P":
+      flag_ptag = arg
     elif opt == "-p":
       flag_preserve_bitcode = True
 
@@ -290,9 +311,30 @@ def parse_args():
         flag_clang_opts.append(clarg)
         if clarg == "-c":
           foundc = True
-        if clarg in passargs:
-          flag_opt_opts.append(clarg)
-          flag_llc_opts.append(clarg)
+        translated = False
+        for rex, tr in transargs.iteritems():
+          u.verbose(3, "=-= tmatching clarg %s against %s" % (clarg, rex))
+          r = re.compile(rex)
+          m = r.match(clarg)
+          if m:
+            transarg = tr % m.group(1)
+            flag_opt_opts.append(transarg)
+            flag_llc_opts.append(transarg)
+            u.verbose(3, "=-= => translated %s to %s" % (clarg, transarg))
+            translated = True
+            break
+        if translated:
+          continue
+        if flag_pass_olevel:
+          for rex in passargs:
+            u.verbose(3, "=-= matching clarg %s against %s" % (clarg, rex))
+            r = re.compile(rex)
+            m = r.match(clarg)
+            if m:
+              flag_opt_opts.append(clarg)
+              flag_llc_opts.append(clarg)
+              u.verbose(3, "=-= => matched")
+              break
   if not clangbin:
     usage("malformed command line, no -- arg or no clang mentioned")
   if not foundc:

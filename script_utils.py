@@ -24,6 +24,7 @@ flag_unittest = 0
 
 hrszre = re.compile(r"^([\d\.]+)(\S)$")
 factors = {"K": 1024.0, "M": 1048576.0, "G": 1073741824.0}
+rfactors = [("GiB", 1073741824.0), ("MB", 1048576.0), ("KB", 1024.0)]
 
 
 def verbose(level, msg):
@@ -121,6 +122,7 @@ def docmdout(cmd, outfile, nf=None):
       error("")
   return True
 
+
 # invoke command, writing output to file
 def docmderrout(cmd, outfile, nf=None):
   """Run a command via subprocess, writing output to a file."""
@@ -131,7 +133,8 @@ def docmderrout(cmd, outfile, nf=None):
       rc = subprocess.call(args, stdout=outfile, stderr=outfile)
       if rc != 0:
         if nf:
-          sys.stderr.write("error: command failed (rc=%d) cmd: %s\n" % (rc, cmd))
+          sys.stderr.write("error: command failed "
+                           "(rc=%d) cmd: %s\n" % (rc, cmd))
           return rc
         else:
           error("command failed (rc=%d) cmd: %s\n" % (rc, cmd))
@@ -221,7 +224,8 @@ def docmdwithtimeout(cmd, timeout_duration):
   class TimeoutError(Exception):
     pass
 
-  def handler(signum, frame):
+  def handler(signum, _):
+    verbose(9, "handler: signal %d" % signum)
     raise TimeoutError()
 
   # set the timeout handler
@@ -230,7 +234,8 @@ def docmdwithtimeout(cmd, timeout_duration):
   try:
     result = docmdnf(cmd)
   except TimeoutError as exc:
-    verbose(1, "timeout triggered after %d seconds" % timeout_duration)
+    verbose(1, "timeout triggered after %d "
+            "seconds: %s" % (timeout_duration, str(exc)))
     result = -1
   finally:
     signal.alarm(0)
@@ -279,6 +284,19 @@ def hr_size_to_bytes(sz):
   return nb
 
 
+def bytes_to_hr_size(sz):
+  """Convert bytes to human readable size."""
+  fb = float(sz)
+  for p in rfactors:
+    tag = p[0]
+    fac = p[1]
+    frac = fb / fac
+    if frac < 1.0:
+      continue
+    return "%2.1f%s" % (frac, tag)
+  return "%d bytes" % sz
+
+
 def trim_perf_report_file(infile):
   """Trim trailing spaces from lines in perf report."""
   verbose(1, "trim: reading " + infile)
@@ -303,12 +321,11 @@ def trim_perf_report_file(infile):
 
 
 # Return value is branch, mods, untracked, renames, rev_renames
-
 def get_git_status():
-  """Collect and return info from git status -sb"""
+  """Collect and return info from git status -sb."""
   stcmd = "git status -sb"
-  u.verbose(1, "modfiles git cmd: %s" % stcmd)
-  lines = u.docmdlines(stcmd)
+  verbose(1, "modfiles git cmd: %s" % stcmd)
+  lines = docmdlines(stcmd)
 
   # key is file, value is M/A/D
   modifications = {}
@@ -334,7 +351,7 @@ def get_git_status():
     branch = m.group(1)
   if not branch:
     error("internal error: pattern match failed "
-            "for git status line %s" % line)
+          "for git status line %s" % line)
 
   # Remaining lines
   rs = re.compile(r"^\s*$")
@@ -357,13 +374,13 @@ def get_git_status():
         if rb.match(modfile):
           continue
         error("found modified or untracked "
-                "file %s -- please run git add ." % modfile)
+              "file %s -- please run git add ." % modfile)
       if op != "A" and op != "M" and op != "D":
         error("internal error: bad op %s in git "
-                "status line %s" % (op, line.strip()))
+              "status line %s" % (op, line.strip()))
       if modfile in modifications:
         error("internal error: mod file %s "
-                "already in table" % modfile)
+              "already in table" % modfile)
       modifications[modfile] = op
       continue
     m2 = r2.match(line)
@@ -383,15 +400,15 @@ def get_git_status():
         renames[oldfile] = newfile
         rev_renames[newfile] = oldfile
         if newfile in modifications:
-          u.error("internal error: dest of rename %s "
-                  "already in modifications table" % newfile)
+          error("internal error: dest of rename %s "
+                "already in modifications table" % newfile)
         renames[oldfile] = newfile
         rev_renames[newfile] = oldfile
         modifications[newfile] = "M"
       else:
-        u.error("internal error: unknown op %s "
-                "in git status line %s" % (op, line))
+        error("internal error: unknown op %s "
+              "in git status line %s" % (op, line))
       continue
-    u.error("internal error: pattern match failed "
-            "for git status line %s" % line)
+    error("internal error: pattern match failed "
+          "for git status line %s" % line)
     return branch, modifications, untracked, renames, rev_renames

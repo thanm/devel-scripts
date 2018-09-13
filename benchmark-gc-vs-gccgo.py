@@ -9,45 +9,46 @@ compiler executable with gccgo and with the main go compiler.
 Once the executable under test ("compile") is built in the proper way,
 then script then uses that compiler to compile itself -- this
 generates a series of executions which it then replays (these runs are
-the things being benchmarked). We collect wall clock time, metrics
-from perf "stat", and a perf.data file from "perf record" for each
-flavor.
+the things being benchmarked) -- this capturing is performed by the helper
+script 'capture-go-compiler-invocation.py'. We collect wall clock time, metrics
+from perf "stat", a perf.data file from "perf record" for each
+flavor, and pprof cpu profiles.
 
 Output files are:
 
   err.bootstrap.<flavor>.txt
 
            output of building "compile" where <flavor> is either
-           'gccgo' or 'gc'
+           'gccgo', 'gollvm', or 'gc'
 
   err.benchrun.bootstrap.<flavor>.<tag>.txt
 
-           output of a single benchmark run where <flavor> is either
-           'gccgo' or 'gc' and <tag> corresponds to what we're
+           output of a single benchmark run where <flavor> is
+           'gccgo'/'gollvm'/'gc' and <tag> corresponds to what we're
            measuring ("tim" for wall block time, "perfdata" for
            perf.data collection run, etc)
 
   rep.<flavor>.txt
 
            output of 'perf report' run on perf.data collected from
-           benchmark run; <flavor> is either 'gccgo' or 'gc'
+           benchmark run; <flavor> is 'gccgo'/'gollvm'/'gc'
 
   ann<K>.<flavor>.txt
 
            output of 'perf annotate' run on perf.data collected from
-           benchmark run; <flavor> is either 'gccgo' or 'gc', and <K>
+           benchmark run; <flavor> is 'gccgo'/'gollvm'/'gc', and <K>
            is index of function of interest
 
   pprofdis<K>.<flavor>.txt
 
            output of 'pprof disasm' run on perf.data collected from
-           benchmark run; <flavor> is either 'gccgo' or 'gc', and <K>
+           benchmark run; <flavor> is 'gccgo'/'gollvm'/'gc', and <K>
            is index of function of interest
 
   asm<K>.<flavor>.txt
 
            output of 'objdump -dl' on compiler executable used for
-           benchmark run; <flavor> is either 'gccgo' or 'gc', and <K>
+           benchmark run; <flavor> is 'gccgo'/'gollvm'/'gc', and <K>
            is index of function of interest
 
 Scripts generated along the way:
@@ -109,6 +110,12 @@ flag_skip_benchrun = False
 # Generate HTML versions of reports
 flag_genhtml = False
 
+# Include linux perf runs
+flag_doperf = False
+
+# Include pprof profiling runs
+flag_dopprof = True
+
 # Where to get go
 go_git = "https://go.googlesource.com/go"
 
@@ -135,6 +142,9 @@ interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
 # If filled in, then set GOMAXPROCS to this value
 flag_gomaxprocs = None
 
+# Which version of perf to run
+flag_perf = "perf"
+
 # Count of lines in ppo file
 ppolines = 0
 
@@ -145,20 +155,22 @@ generated_reports = {}
 
 gc_variant = {
     "tag": "gc",
-    "install": go_install,
+    "i nstall": go_install,
     "extra_flags": None
     }
+
+#  -fgo-optimize-allocs
 
 gccgo_variant = {
     "tag": "gccgo",
     "install": gccgo_install,
-    "extra_flags": "-O2 -static -fgo-optimize-allocs"
+    "extra_flags": "-O2 -static"
     }
 
 gollvm_variant = {
     "tag": "gollvm",
-    "install": "/ssd/gcc-trunk/cross.gollvm",
-    "extra_flags": "-O2 -static -fgo-optimize-allocs"
+    "install": gollvm_install,
+    "extra_flags": "-O2 -static"
     }
 
 variants = {
@@ -241,6 +253,20 @@ def dochdir(thedir):
     os.chdir(thedir)
   except OSError as err:
     u.error("chdir failed: %s" % err)
+
+
+def dormdir(thedir):
+  """Remove dir."""
+  if flag_echo:
+    sys.stderr.write("rm -r " + thedir + "\n")
+  if flag_dryrun:
+    return
+  if not os.path.exists(thedir):
+    return
+  try:
+    rmdir(thedir)
+  except OSError as err:
+    u.error("rmdir(%s) failed: %s" % (thedir, err))
 
 
 def patch_repo(repo, flags):
@@ -347,17 +373,22 @@ def bootstrap(repo, goroot, variant):
       wf.write("cd ../pkg\n")
       wf.write("rm -f tool/linux_amd64/compile\n")
       wf.write("mv bootstrap/bin/compile tool/linux_amd64/compile\n")
+      wf.write("if [ $? != 0 ]; then\n")
+      wf.write("  echo '*** FAIL copy ***'\n")
+      wf.write("  exit 1\n")
+      wf.write("fi\n")
   except IOError:
     u.error("unable to open %s for writing" % f)
   outfile = "err.%s.txt" % repo
   docmderrout("sh %s" % f, outfile)
+  docmd("touch %s/token.txt" % repo)
 
 
 def benchprep(repo, variant):
   """Prepare for running a benchmark build."""
   # Here the general idea is to run 'go build' with -a -x -work
   # and capture the compilation commands. We then emit a script
-  # that will replay just he  re-play the compilation commands.
+  # that will replay just the compilation commands.
   f = "prep.%s.sh" % repo
   here = os.getcwd()
   goroot = os.path.join(here, repo)
@@ -368,10 +399,11 @@ def benchprep(repo, variant):
       wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
-      if variant == "gccgo":
-        wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % gccgo_install)
+      if variant == "gccgo" or variant == "gollvm":
+        wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src/cmd/compile\n" % repo)
-      wf.write("rm -rf %s/pkg/linux_amd64/cmd/compile\n" % goroot)
+      wf.write("rm -rf %s/pkg/*inux_amd64/cmd/compile\n" % goroot)
+      wf.write("go clean -cache\n")
       wf.write("go build -work -p 1 -x -o compile.new .\n")
       wf.write("if [ $? != 0 ]; then\n")
       wf.write("  echo '*** FAIL ***'\n")
@@ -386,7 +418,7 @@ def benchprep(repo, variant):
   if not flag_dryrun:
     # harvest output
     doscmd("capture-go-compiler-invocation.py "
-           "-i %s -o %s" % (outfile, scriptfile))
+           "-N -C -i %s -o %s" % (outfile, scriptfile))
     # capture work dir
     workdir = None
     try:
@@ -411,6 +443,7 @@ def benchprep(repo, variant):
 def benchmark(repo, runscript, wrapcmd, tag):
   """Run benchmark build."""
   f = "bench.%s.%s.sh" % (repo, tag)
+  u.verbose(1, "... running %s" % f)
   if os.path.exists(f):
     rmfile(f)
   try:
@@ -470,8 +503,8 @@ def annotate(func, tag, fn, ppo):
       return
   report_file = "ann%d.%s.txt" % (fn, tag)
   ppo_append(ppo,
-             "perf annotate -i perf.data.%s "
-             "-s %s" % (tag, func), report_file)
+             "%s annotate -i perf.data.%s "
+             "-s %s" % (flag_perf, tag, func), report_file)
   generated_reports[report_file] = 1
 
 
@@ -525,49 +558,55 @@ def process_variant(variant, ppo):
   here = os.getcwd()
   build_dir = "bootstrap.%s" % variant
   installation = variants[variant]["install"]
-  if not flag_skip_bootstrap:
+  if flag_skip_bootstrap and os.path.exists("%s/token.txt" % build_dir):
+    u.verbose(0, "... skipping bootstrap for %s" % variant)
+  else:
     bootstrap(build_dir, installation, variant)
   work = None
   if flag_skip_benchrun:
     return
+  # Step 1: run for time.
   work, runit = benchprep(build_dir, variant)
   benchmark(build_dir, runit, "/usr/bin/time", "tim")
-  perfwrap = "perf record -o %s/perf.data.%s" % (here, variant)
-  benchmark(build_dir, runit, perfwrap, "perf")
-  if 1 == 0:
-    # need to build libgo.so with -fno-omit-frame-pointer
-    # before doing this
-    gperfwrap = "perf record -g -o %s/perf.data.cg.%s" % (here, variant)
-    benchmark(build_dir, runit, gperfwrap, "cgperf")
-  # report
-  report_file = "rep.%s.txt" % variant
-  docmdout("perf report -i perf.data.%s" % variant, report_file)
-  u.trim_perf_report_file(report_file)
-  generated_reports[report_file] = 1
-  # pprof top
-  preport_file = "pproftop.%s.txt" % variant
-  ppo_append(ppo, "pprof --top perf.data.%s " % variant,
-             preport_file)
-  generated_reports[preport_file] = 1
+  # Step 2: perf run
+  if flag_doperf:
+    perfwrap = "%s record -o %s/perf.data.%s" % (flag_perf, here, variant)
+    benchmark(build_dir, runit, perfwrap, "perf")
+    # report
+    report_file = "rep.%s.txt" % variant
+    docmdout("%s report -i perf.data.%s" % (flag_perf, variant), report_file)
+    u.trim_perf_report_file(report_file)
+    generated_reports[report_file] = 1
+    # pprof top
+    preport_file = "pproftop.%s.txt" % variant
+    ppo_append(ppo, "pprof --top perf.data.%s " % variant,
+               preport_file)
+    generated_reports[preport_file] = 1
 
-  if 1 == 0:
-    # need to build libgo.so with -fno-omit-frame-pointer
-    # before doing this
-    docmdout("perf report -i perf.data.cg.%s" % variant,
-             "cgrep.%s.txt" % variant)
-    u.trim_perf_report_file("cgrep.gccgo.txt")
+    # annotate and disassemble a couple of functions
+    fn = 1
+    for tup in interesting_funcs:
+      f, gf = tup
+      if variant == "gccgo":
+        f = gf
+      annotate(f, variant, fn, ppo)
+      disas(f, build_dir, variant, fn, ppo)
+      fn += 1
 
-  # annotate and disassemble a couple of functions
-  fn = 1
-  for tup in interesting_funcs:
-    f, gf = tup
-    if variant == "gccgo":
-      f = gf
-    annotate(f, variant, fn, ppo)
-    disas(f, build_dir, variant, fn, ppo)
-    fn += 1
-  if work and not flag_keepwork:
-    rmdir(work)
+  # Step 3: pprof run
+  if flag_dopprof:
+    here = os.getcwd()
+    pprof_work = "%s/pprof.files.%s" % (here, variant)
+    dormdir(pprof_work)
+    docmd("mkdir -p %s" % pprof_work)
+    benchmark(build_dir, runit, "CPUPROFILE=%s" % pprof_work, "pprof")
+
+  if work:
+    if flag_keepwork:
+      u.verbose(1, "keeping work dir %s" % work)
+    else:
+      u.verbose(1, "removing work dir %s" % work)
+      rmdir(work)
 
 
 def open_pprof_output():
@@ -620,7 +659,6 @@ def generate_html():
 def perform():
   """Main routine for script."""
   repo_setup()
-  zversion_gen()
   outf, ppo = open_pprof_output()
   for v in variants:
     process_variant(v, ppo)
@@ -649,6 +687,7 @@ def usage(msgarg):
     -L X  benchmark the gollvm compiler drawn from gollvm root X
     -M N  set GOMAXPROCS to N prior to bench run
     -P    preserve 'go build' workdirs
+    -Z    include linux 'perf' runs
 
     Example usage:
 
@@ -681,10 +720,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_skip_bootstrap, flag_skip_benchrun
   global flag_keepwork, go_install, gccgo_install, flag_genhtml
-  global flag_gomaxprocs
+  global flag_gomaxprocs, gollvm_install, flag_perf, flag_doperf
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBNM:DHPg:G:L:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBZNM:DHPg:G:L:F:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -707,21 +746,30 @@ def parse_args():
       flag_skip_benchrun = True
     elif opt == "-P":
       flag_keepwork = True
+    elif opt == "-Z":
+      flag_doperf = True
     elif opt == "-H":
       flag_genhtml = True
     elif opt == "-M":
       u.verbose(1, "setting GOMAXPROCS to %s on bench run" % arg)
       flag_gomaxprocs = arg
+    elif opt == "-F":
+      u.verbose(1, "selecting %s as perf version" % arg)
+      flag_perf = arg
     elif opt == "-G":
       u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg
       variants["gccgo"]["install"] = gccgo_install
+    elif opt == "-L":
+      u.verbose(1, "setting gollvm_install to %s" % arg)
+      gollvm_install = arg
+      variants["gollvm"]["install"] = gollvm_install
     elif opt == "-g":
       u.verbose(1, "setting go_install to %s" % arg)
       go_install = arg
       variants["gc"]["install"] = go_install
 
-    # Make sure gccgo install look ok
+    # Make sure gccgo install looks ok
   if not os.path.exists(gccgo_install):
     usage("unable to locate gccgo installation %s" % gccgo_install)
   if not os.path.isdir(gccgo_install):

@@ -12,7 +12,6 @@ will be sorted as 1,2,5.
 
 """
 
-import re
 import sys
 
 import script_utils as u
@@ -27,7 +26,7 @@ for line in lines:
     nbytes = u.hr_size_to_bytes(chunks[0])
     if not nbytes:
       continue
-    tup = (nbytes, chunks[0], chunks[1])
+    tup = (nbytes, chunks[0], " ".join(chunks[1:]))
     tups.append(tup)
   else:
     u.warning("malformed 'du' output line %s" % line)

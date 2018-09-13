@@ -64,9 +64,10 @@ def perform():
   if flag_reverse:
     if not islink:
       u.warning("warning: gcc/go/gofrontend not a link (%s), "
-                "unable to proceed" % msg)
+                "continuing anyway" % msg)
       return
-    undolink("gcc/go/gofrontend")
+    else:
+      undolink("gcc/go/gofrontend")
     for item in os.listdir("libgo"):
       undolink("libgo/%s" % item)
     docmd("git checkout libgo")
