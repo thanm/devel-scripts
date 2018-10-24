@@ -1670,3 +1670,6 @@ alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=ma
 
 # zgrviewer
 alias zgrviewit=run_zgrviewer
+
+# handbrake
+alias handbrake=ghb
