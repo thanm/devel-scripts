@@ -467,7 +467,7 @@ function gccgo-genfiles() {
   find . -name .git -prune -o -type f -print > allfiles.txt
   find . -name "*.go" -print > gofiles.txt
   cd ..
-  
+
   # Everything in gcc, libcpp, and gofrontend
   find ./gcc-trunk/gcc \
     -name testsuite -prune -o \
@@ -634,7 +634,7 @@ function run_git_meld_hash() {
     fi
   fi
   shift $shift2
-  
+
   # Remaining args
   extr="$*"
   if [ ! -z "$extr" ]; then
@@ -816,7 +816,7 @@ function prependToLdLibraryPathIfNotAlreadyPresent () {
   local col=":"
   if [ -z "$LD_LIBRARY_PATH" ]; then
     col=""
-  fi	
+  fi
   case ":$LD_LIBRARY_PATH:" in
     *":${D}:"*) echo "dir $D already in LD_LIBRARY_PATH" ;;
     *) echo "dir $D prepended to LD_LIBRARY_PATH" ; export LD_LIBRARY_PATH="${D}${col}${LD_LIBRARY_PATH}" ;;
@@ -828,7 +828,7 @@ function appendToLdLibraryPathIfNotAlreadyPresent () {
   local col=":"
   if [ -z "$LD_LIBRARY_PATH" ]; then
     col=""
-  fi	
+  fi
   case ":$LD_LIBRARY_PATH:" in
     *":$D:"*) echo "dir $D already in LD_LIBRARY_PATH" ;;
     *) echo "dir $D appended to LD_LIBRARY_PATH" ; export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}${col}${D}" ;;
@@ -946,7 +946,7 @@ function unsetgccgoroot() {
 
   # Extract from LD_LIBRARY_PATH
   removeFromLdLibraryPathIfPresent "$MYGCCGOROOT/lib64"
-  
+
   echo "Unsetting MYGCCGOROOT"
   unset MYGCCGOROOT
 }
@@ -1003,7 +1003,7 @@ function unsetgoroot() {
   unset MYGOROOT
   echo "Unsetting GOROOT_BOOTSTRAP"
   unset GOROOT_BOOTSTRAP
-  
+
 }
 
 function setgobootstrapifneeded() {
@@ -1011,7 +1011,7 @@ function setgobootstrapifneeded() {
 
   if [ ! -z "$GOROOT_BOOTSTRAP" ]; then
     return
-  fi	
+  fi
 
   if [ -z "$d" ]; then
     # Infer bootstrap based on current go
@@ -1101,8 +1101,13 @@ function select_ssd_go_repo() {
 
 function run_ddir_sync() {
   local PAIR=$1
+  local DRYRUN=$2
   local SRC=""
   local DST=""
+  local opt=""
+  if [ "x$DRYRUN" = "xdryrun" ]; then
+    opt="-n"
+  fi
 
   pushd /d
   if [ $? != 0 ]; then
@@ -1121,13 +1126,14 @@ function run_ddir_sync() {
       echo "unable to locate dst $DST, skipping"
       continue
     fi
-    echo rsync -av ${SRC}/ ${DST}/
-    rsync -av ${SRC}/ ${DST}/
+    echo rsync $opt -av ${SRC}/ ${DST}/
+    rsync $opt -av ${SRC}/ ${DST}/
   done
   popd
 }
 
 function run_photovideo_rsync() {
+  local DRYRUN="$1"
   local PAIRS=$PHOTOVIDEO_PAIRS
 
   pushd /d
@@ -1137,12 +1143,13 @@ function run_photovideo_rsync() {
   fi
   for P in $PAIRS
   do
-    run_ddir_sync $P
+    run_ddir_sync $P $DRYRUN
   done
   popd
 }
 
 function run_mp_rsync() {
+  local DRYRUN="$1"
   local PAIRS=$MP_PAIRS
 
   pushd /d
@@ -1152,7 +1159,7 @@ function run_mp_rsync() {
   fi
   for P in $PAIRS
   do
-    run_ddir_sync $P
+    run_ddir_sync $P $DRYRUN
   done
   popd
 }
@@ -1242,7 +1249,7 @@ function gccgotrunkconfig() {
   echo "  --enable-languages=c,c++,go \\" >> $TF
   echo "  --enable-libgo \\" >> $TF
   echo "  --with-ld=$ROOT/binutils-cross/bin/ld.gold \\" >> $TF
-    
+
   if [ ! -z "$ARGS" ]; then
     for ARG in $ARGS
     do
@@ -1352,7 +1359,7 @@ function binutilstrunkconfig() {
   echo "../binutils/configure \\" >> $TF
   echo "  --enable-gold=default \\" >> $TF
   echo "  --enable-plugins  \\" >> $TF
-    
+
   if [ ! -z "$ARGS" ]; then
     for ARG in $ARGS
     do
@@ -1413,7 +1420,7 @@ function emacsbranched() {
       for RF in $RFILES
       do
         FILES="$FILES ${WORKROOT}/${RF}"
-      done	    
+      done
     fi
   fi
   FILES="$FILES $WHICH"
@@ -1428,12 +1435,12 @@ function emacsbranched() {
   fi
 
   startemacs $FILES
-  
+
   if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
     unset GOROOT
   fi
 }
-  
+
 function emacshash() {
   local HASH="$1"
   local BN=""
@@ -1485,7 +1492,7 @@ function emacsmod() {
     echo "** can't find any modifed files, unable to proceed"
     return
   fi
-  
+
   startemacs $FILES
 }
 
@@ -1499,7 +1506,7 @@ function runalldotbash() {
   if [ $? != 0 ]; then
     echo "** go env GOROOT failed"
     return
-  fi	
+  fi
 
   # Go root set?
   if [ -z "$MYGOROOT" ]; then
@@ -1513,12 +1520,12 @@ function runalldotbash() {
     return
   fi
   HASH=`git rev-parse --short HEAD`
-  
+
   # Check spot
   if [ "$HERE" != "${GR}/src" ]; then
     echo "** not in \${GOROOT}/src, can't run"
     return
-  fi	
+  fi
 
   # Check script
   if [ ! -x ./all.bash ]; then
