@@ -7,6 +7,7 @@ etc. These functions are shared by a number of helper scripts.
 
 """
 
+import calendar
 import locale
 import os
 import re
@@ -15,6 +16,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 # Debugging verbosity level (0 -> no output)
 flag_debug = 0
@@ -91,13 +93,15 @@ def docmdnf(cmd):
 
 
 # Similar to docmd, but suppress output
-def doscmd(cmd, nf=None):
+def doscmd(cmd, nf=None, suppressErr=False):
   """Run a command via subprocess, suppressing output unless error."""
   verbose(2, "+ doscmd executing: %s" % cmd)
   args = shlex.split(cmd)
   cmdtf = tempfile.NamedTemporaryFile(mode="w", delete=True)
   rc = subprocess.call(args, stdout=cmdtf, stderr=cmdtf)
   if rc != 0:
+    if suppressErr:
+      return None
     warning("error: command failed (rc=%d) cmd: %s" % (rc, cmd))
     warning("output from failing command:")
     subprocess.call(["cat", cmdtf.name])
@@ -412,3 +416,8 @@ def get_git_status():
     error("internal error: pattern match failed "
           "for git status line %s" % line)
     return branch, modifications, untracked, renames, rev_renames
+
+
+def seconds():
+  """Return seconds since epoch."""
+  return calendar.timegm(time.gmtime())

@@ -60,6 +60,9 @@ toolpaths = {"clang":"/unknownpath", "llc":"/unknownpath", "opt":"/unknownpath",
 # Keep temp files around
 flag_preserve_bitcode = False
 
+# Generate 'opt' bitcode by manual 'opt' invocation.
+flag_explicitly_invoke_opt = False
+
 # Tag result files.
 flag_ptag = None
 
@@ -209,17 +212,26 @@ def perform():
 
   # Emit post-opt bitcode
   opt_bcfile = emitted_path("opt", "bc")
-  if os.path.exists(toolpaths["opt"]):
-    args = ("%s %s %s -o %s " % (toolpaths["opt"], clang_bcfile,
-                               " ".join(flag_opt_opts), opt_bcfile))
+  if flag_explicitly_invoke_opt:
+    if os.path.exists(toolpaths["opt"]):
+      args = ("%s %s %s -o %s " % (toolpaths["opt"], clang_bcfile,
+                                 " ".join(flag_opt_opts), opt_bcfile))
+      rc = docmdnf(args)
+      if rc != 0:
+        u.verbose(1, "opt cmd returns %d" % rc)
+        return
+      disdump("opt")
+    else:
+      u.verbose(0, "opt run stubbed out (unable to "
+                "access/run %s" % toolpaths["opt"])
+  else:
+    args = ("%s -emit-llvm -o %s %s" % (toolpaths["clang"], opt_bcfile,
+                                        " ".join(flag_clang_opts)))
     rc = docmdnf(args)
     if rc != 0:
-      u.verbose(1, "opt cmd returns %d" % rc)
+      u.verbose(1, "clang cmd returns %d" % rc)
       return
     disdump("opt")
-  else:
-    u.verbose(0, "opt run stubbed out (unable to "
-              "access/run %s" % toolpaths["opt"])
 
   # Now run llc command
   if os.path.exists(toolpaths["llc"]):
@@ -253,6 +265,8 @@ def usage(msgarg):
     -e    show commands being invoked
     -D    dry run (echo cmds but do not execute)
     -p    reuse/preserve bitcode files
+    -x    generate post-opt bitcode by explicitly invoking
+          'opt' (usually not a good idea due to options setup)
     -P T  tag preserved files with tag 'T'
     -L X  pass option X to llc
     -O Y  pass option Y to opt
@@ -264,10 +278,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_preserve_bitcode, flag_dryrun, flag_echo, arghash
-  global flag_ptag, flag_pass_olevel
+  global flag_ptag, flag_pass_olevel, flag_explicitly_invoke_opt
 
   try:
-    optlist, _ = getopt.getopt(sys.argv[1:], "depDTL:O:P:")
+    optlist, _ = getopt.getopt(sys.argv[1:], "depxDTL:O:P:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -289,6 +303,8 @@ def parse_args():
       flag_ptag = arg
     elif opt == "-p":
       flag_preserve_bitcode = True
+    elif opt == "-x":
+      flag_explicitly_invoke_opt = True
 
   # Walk through command line and locate --
   nargs = len(sys.argv)

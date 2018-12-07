@@ -5,6 +5,7 @@ import getopt
 import os
 import re
 import sys
+import tempfile
 
 import script_utils as u
 
@@ -14,14 +15,19 @@ flag_infiles = []
 def examine(afile):
   """Dump go exports for specified file."""
 
-  # Handle archives
   objfile = afile
-  lines = u.docmdlines("ar t %s" % afile, True)
-  if lines:
-    # Extract elem from archive
+  arcmd = "ar t %s" % afile
+
+  # Run 'ar' command, suppressing error output. If
+  # if succeeds, then continue on the ar path, otherwise
+  # treat input as an object.
+  if u.doscmd(arcmd, True, True):
+    # Handle archives
+    lines = u.docmdlines(arcmd, True)
     if not lines:
-      u.warning("skipping %s, doesn't appear to be an archive" % afile)
+      u.warning("skipping %s, can't index archive %s", afile)
       return
+    # Extract elem from archive
     elem = lines[0].strip()
     u.verbose(1, "%s contains %s" % (afile, elem))
     rc = u.docmdnf("ar x %s %s" % (afile, elem))
@@ -30,22 +36,28 @@ def examine(afile):
       return
     objfile = elem
 
+  gexptemp = tempfile.NamedTemporaryFile(mode="w",
+                                         prefix="go_export",
+                                         delete=True)
+
   # Handle objects
   cmd = ("objcopy -O binary --only-section=.go_export "
          "--set-section-flags .go_export=alloc %s "
-         "go_export.txt" % objfile)
+         "%s" % (objfile, gexptemp.name))
   rc = u.docmdnf(cmd)
   if rc:
     u.warning("skipping %s, can't extract export "
               "data (cmd failed: %s)" % (objfile, cmd))
     return
   try:
-    inf = open("go_export.txt", "rb")
+    inf = open(gexptemp.name, "rb")
   except IOError as e:
-    u.error("unable to open go_export.txt: "
-            "%s" % e.strerror)
+    u.error("unable to open tempfile %s: "
+            "%s" % (gexptemp.name, e.strerror))
   print "== %s ==" % afile
   lines = inf.readlines()
+  if not lines:
+    u.warning("skipping %s, no .go_export section present" % objfile)
   for line in lines:
     print line.strip()
   inf.close()

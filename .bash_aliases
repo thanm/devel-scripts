@@ -341,7 +341,7 @@ function llvmroot() {
     fi
     CUR=`dirname $CUR`
   done
-  echo "Unable to locatel llvm root in $HERE" 1>&2
+  echo "Unable to locate llvm root in $HERE" 1>&2
   return 1
 }
 
@@ -361,7 +361,7 @@ function llvm-genfiles-flavor() {
     -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
-  local BUILDDIR=build.opt
+  local BUILDDIR=`ls -trad */build.ninja | tail -1 | xargs dirname`
 
   if [ "$S" = "0" ]; then
     DOFILT=cat
@@ -431,6 +431,7 @@ function gcc-genfiles-single() {
   find . -name .svn -prune -o -name .git -prune -o \
     -name out -prune -o \
     -name testsuite -prune -o \
+    -name testdata -prune -o \
     -name "*.S" ${PR} -o \
     -name "*.md" ${PR} -o \
     -name "*.opt" ${PR} -o \
@@ -528,6 +529,7 @@ function gccgo-mkid() {
 
 function gcc-mkid() {
   gcc-genfiles-single 0
+  gcc-genfiles-single 
   mkid --files0-from cxxfiles0.txt
   rm -f cxxfiles0.txt
 }
@@ -1278,6 +1280,21 @@ function gccgotrunkconfigdebug() {
   gccgotrunkconfig debug
 }
 
+function gccgo_build() {
+  local NP=`nproc`
+  if [ $NP -gt 20 ]; then
+    NP=20
+  fi
+  echo "make -j${NP} all 1> berr.txt 2>&1"
+  make -j${NP} all 1> berr.txt 2>&1
+  if [ $? != 0 ]; then
+    echo "** build failed"
+    startemacs berr.txt
+    return
+  fi
+  echo "result: PASS"
+}
+
 function gccgo_build_and_test() {
   local NP=`nproc`
   if [ $NP -gt 20 ]; then
@@ -1663,3 +1680,6 @@ alias runvalgrindformassif="/ssd2/valgrind-bin/bin/valgrind --massif-out-file=ma
 
 # zgrviewer
 alias zgrviewit=run_zgrviewer
+
+# Enable ptrace attach for gdb.
+alias enable_gdb_ptrace_attach="echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope"

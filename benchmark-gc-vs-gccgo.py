@@ -120,13 +120,13 @@ flag_dopprof = True
 go_git = "https://go.googlesource.com/go"
 
 # Where to look for gc-based go installation
-go_install = "/place/go/install/here"
+go_install = None
 
 # Where to look for gccgo-based go installation
-gccgo_install = "/place/gccgo/install/here"
+gccgo_install = None
 
 # Where to look for gollvm-based go installation
-gollvm_install = "/place/gollvm/install/here"
+gollvm_install = None
 
 # Hard-coded list of functions to analyze more closely
 interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
@@ -155,22 +155,27 @@ generated_reports = {}
 
 gc_variant = {
     "tag": "gc",
-    "i nstall": go_install,
+    "order": 0,
+    "install": None,
     "extra_flags": None
     }
 
 #  -fgo-optimize-allocs
 
+# NB: have had a lot of problems getting -O3 to work with gccgo
+
 gccgo_variant = {
     "tag": "gccgo",
-    "install": gccgo_install,
+    "order": 1,
+    "install": None,
     "extra_flags": "-O2 -static"
     }
 
 gollvm_variant = {
     "tag": "gollvm",
-    "install": gollvm_install,
-    "extra_flags": "-O2 -static"
+    "order": 2,
+    "install": None,
+    "extra_flags": "-O3 -static"
     }
 
 variants = {
@@ -291,6 +296,7 @@ def patch_repo(repo, flags):
                 if c == "\"-gcflags=-l\",":
                   u.verbose(0, "patching gcflags line\n")
                   newcomps.append("\"-gccgoflags=%s\", " % flags)
+                  newcomps.append("\"-p=8\", ")
                 newcomps.append(c)
               line = " ".join(newcomps)
               line += "\n"
@@ -310,18 +316,22 @@ def repo_setup():
     doscmd("git clone %s go.repo" % go_git)
   # Make copies
   u.verbose(0, "... refreshing repo copies")
-  for v in variants:
-    c = "bootstrap.%s" % v
-    if os.path.exists(c):
-      if flag_skip_bootstrap:
-        u.verbose(0, "... bootstrap dir %s exists, will reuse" % c)
-        continue
-      rmdir(c)
-    u.verbose(0, "copying go.repo into %s" % c)
-    copydir("go.repo", c)
-    if v != "gc":
-      # Patch repo to insure that gccgo build is with -O2
-      patch_repo(c, variants[v]["extra_flags"])
+  ordered = order_variants()
+  for v in ordered:
+    if not variants[v]["install"]:
+      u.verbose(0, "... no installation for variant %s, skipping" % v)
+    else:
+      c = "bootstrap.%s" % v
+      if os.path.exists(c):
+        if flag_skip_bootstrap:
+          u.verbose(0, "... bootstrap dir %s exists, will reuse" % c)
+          continue
+        rmdir(c)
+      u.verbose(0, "copying go.repo into %s" % c)
+      copydir("go.repo", c)
+      if v != "gc":
+        # Patch repo to insure that gccgo build is with -O2 or -O3
+        patch_repo(c, variants[v]["extra_flags"])
 
 
 def zversion_gen():
@@ -364,7 +374,7 @@ def bootstrap(repo, goroot, variant):
       wf.write("cd %s/src\n" % repo)
       wf.write("export GOOS=linux\n")
       wf.write("export GOARCH=amd64\n")
-      wf.write("bash make.bash\n")
+      wf.write("bash make.bash -v\n")
       wf.write("if [ $? != 0 ]; then\n")
       wf.write("  echo '*** FAIL ***'\n")
       wf.write("  exit 1\n")
@@ -656,12 +666,22 @@ def generate_html():
   docmd("rm %s" % hreports)
 
 
+def order_variants():
+  """Select variants by order."""
+  ret = [None] * len(variants)
+  for v in variants:
+    ret[variants[v]["order"]] = v
+  return ret
+
+
 def perform():
   """Main routine for script."""
   repo_setup()
   outf, ppo = open_pprof_output()
-  for v in variants:
-    process_variant(v, ppo)
+  ordered = order_variants()
+  for v in ordered:
+    if variants[v]["install"]:
+      process_variant(v, ppo)
   run_ppo_cmds(outf, ppo)
   if flag_genhtml:
     generate_html()
@@ -687,7 +707,9 @@ def usage(msgarg):
     -L X  benchmark the gollvm compiler drawn from gollvm root X
     -M N  set GOMAXPROCS to N prior to bench run
     -P    preserve 'go build' workdirs
+    -F V  process variant 'V' first (debugging)
     -Z    include linux 'perf' runs
+    -W P  path to 'perf' is P
 
     Example usage:
 
@@ -723,7 +745,7 @@ def parse_args():
   global flag_gomaxprocs, gollvm_install, flag_perf, flag_doperf
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBZNM:DHPg:G:L:F:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBZNM:DHPg:G:L:F:W:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -753,9 +775,23 @@ def parse_args():
     elif opt == "-M":
       u.verbose(1, "setting GOMAXPROCS to %s on bench run" % arg)
       flag_gomaxprocs = arg
-    elif opt == "-F":
-      u.verbose(1, "selecting %s as perf version" % arg)
+    elif opt == "-W":
+      u.verbose(1, "selecting %s as perf path" % arg)
       flag_perf = arg
+    elif opt == "-F":
+      if arg not in variants:
+        usage("can't find specified variant '%s'" % arg)
+      u.verbose(1, "selecting %s as first variant" % arg)
+      oord = variants[arg]["order"]
+      if oord != 0:
+        firstvariant = ""
+        for v in variants:
+          vord = variants[v]["order"]
+          if vord == 0:
+            firstvariant = v
+            break
+        variants[arg]["order"] = 0
+        variants[firstvariant]["order"] = oord
     elif opt == "-G":
       u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg
@@ -769,15 +805,6 @@ def parse_args():
       go_install = arg
       variants["gc"]["install"] = go_install
 
-    # Make sure gccgo install looks ok
-  if not os.path.exists(gccgo_install):
-    usage("unable to locate gccgo installation %s" % gccgo_install)
-  if not os.path.isdir(gccgo_install):
-    usage("gccgo installation %s not a directory" % gccgo_install)
-  gccgobin = os.path.join(gccgo_install, "bin/gccgo")
-  if not os.path.exists(gccgobin):
-    usage("bad gccgo installation, can't access %s" % gccgobin)
-
   # Make sure go install look ok
   if not os.path.exists(go_install):
     usage("unable to locate go installation %s" % go_install)
@@ -786,6 +813,26 @@ def parse_args():
   gobin = os.path.join(go_install, "bin/go")
   if not os.path.exists(gobin):
     usage("bad go installation, can't access %s" % gobin)
+
+  # Make sure gccgo install looks ok if specified
+  if gccgo_install:
+    if not os.path.exists(gccgo_install):
+      usage("unable to locate gccgo installation %s" % gccgo_install)
+    if not os.path.isdir(gccgo_install):
+      usage("gccgo installation %s not a directory" % gccgo_install)
+    gccgobin = os.path.join(gccgo_install, "bin/gccgo")
+    if not os.path.exists(gccgobin):
+      usage("bad gccgo installation, can't access %s" % gccgobin)
+
+  # Make sure gollvm install looks ok if specified
+  if gollvm_install:
+    if not os.path.exists(gollvm_install):
+      usage("unable to locate gollvm installation %s" % gollvm_install)
+    if not os.path.isdir(gollvm_install):
+      usage("gollvm installation %s not a directory" % gollvm_install)
+    gollvmbin = os.path.join(gollvm_install, "bin/llvm-goc")
+    if not os.path.exists(gollvmbin):
+      usage("bad gollvm installation, can't access %s" % gollvmbin)
 
 #
 #......................................................................

@@ -92,13 +92,15 @@ def grabaddrsize(line, func):
   # 000000000000e990 g    DF .text    0000000000000008  GCC_3.0 _Unwind_SetIP
   # 0000000000520c70 g    DF .text    0000000000000043  Base    sinl
   #
-  regexes = [re.compile(r"^(\S+)\s.+\.text\s+(\S+)\s+.+\s+(\S+)$")]
+  regexes = [re.compile(r"^(\S+)\s.+\.text\s+(\S+)\s+(\S+)$"),
+             re.compile(r"^(\S+)\s.+\.text\s+(\S+)\s+\S+\s+(\S+)$")]
   hexstaddr = None
   hexsize = None
   for r in regexes:
     m = r.match(line)
     if m:
       name = m.group(3)
+      u.verbose(2, "=-= name is %s" % name)
       if name == func:
         # Found
         hexstaddr = m.group(1)

@@ -94,8 +94,8 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
   nparg = ""
   if flag_nopar:
     nparg = " -c 1"
-  outf.write("${%s} %s %s $* %s \n" % (driver_var, cparg,
-                                       nparg, " ".join(args)))
+  outf.write("setarch x86_64 -R ${%s} %s %s $* %s \n" % (driver_var, cparg,
+                                                         nparg, " ".join(args)))
   if gosrcfiles:
     u.verbose(0, "extracted compile cmd for: %s" % " ".join(srcfiles))
   if flag_gccgo_gdb and flag_gccgo_gdb in gosrcfiles:
