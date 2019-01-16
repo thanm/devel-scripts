@@ -1,13 +1,30 @@
 #!/usr/bin/python
 """Set up GCC repository for gccgo development.
 
-Developing gccgo requires a copy of the gofrontend repository
-along side a GCC repository, with soft links from gcc into
-gofrontend. This script automates the process of creating
-the necessary links. The assumption is that the root repo
-contains "gcc-trunk" (GCC repo) and "gofrontend" at the
-same level.
+Developing gccgo requires a copy of the gofrontend repository along side a GCC
+repository, with soft links from gcc into gofrontend. This script automates the
+process of creating the necessary links.
 
+The expected directory structure is:
+
+   <root>
+     gcc-trunk
+     gofrontend
+
+Where "gcc-trunk" is the GCC git repo and "gofrontend" is the gofrontend git
+repo (note that the name 'gofrontend' is required, but the GCC git repo can have
+any name).
+
+Script should be run from the GCC git repo (it will complain if it can't find
+expected subdirectories such as "gcc" and "libgo").
+
+There are two usage modes for this script. If you run without arguments, it
+removes gofrontend files/dirs inside the GCC repo and replaces them with soft
+links back to the gofrontend repo. If you run with the "-R" option, it removes
+the soft links and does a "git checkout" on all the things that were previously
+linked.
+
+Run the script with "-D" (dry run) to see what actions would be taken.
 """
 
 import getopt

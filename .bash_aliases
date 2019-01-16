@@ -413,7 +413,7 @@ function llvm-mkid() {
     rm -f ID
     echo "... running mkid in $LLVMROOT"
     mkid --files0-from cxxfiles0.txt
-    rm -f cxxfiles0.txt mkfiles0.txt
+    #    rm -f cxxfiles0.txt mkfiles0.txt
     echo "... ID file created in $LLVMROOT"
     find llvm -name "*.def" > deffiles.txt
     find llvm -name "*.td" > tdfiles.txt
@@ -1690,6 +1690,9 @@ alias zgrviewit=run_zgrviewer
 
 # Enable ptrace attach for gdb.
 alias enable_gdb_ptrace_attach="echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope"
+
+# Enable perf events
+alias enable_perf_events="echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid"
 
 # handbrake
 alias handbrake=ghb

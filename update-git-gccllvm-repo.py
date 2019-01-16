@@ -43,6 +43,11 @@ def do_fetch(subdir):
   here = os.getcwd()
   dn = os.path.dirname(subdir)
   dochdir(dn)
+  # check to make sure we are on master branch
+  lines = u.docmdlines("git rev-parse --abbrev-ref HEAD")
+  if lines[0] != "master":
+    u.error("error: repo at %s not on master "
+            "branch (on '%s' instead" % (dn, lines[0]))
   if os.path.exists(".git/svn"):
     docmd("git fetch")
     docmd("git svn rebase -l")

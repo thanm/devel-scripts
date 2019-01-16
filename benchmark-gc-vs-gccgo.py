@@ -113,8 +113,17 @@ flag_genhtml = False
 # Include linux perf runs
 flag_doperf = False
 
+# Alternate run tag (useful mainly with -O)
+flag_othertag = None
+
+# Auto-FDO input profile file for this fun
+flag_autofdoprofile = None
+
 # Include pprof profiling runs
 flag_dopprof = True
+
+# Include AutoFDO perf.data collection runs
+flag_collect_autofdo_perf = False
 
 # Where to get go
 go_git = "https://go.googlesource.com/go"
@@ -160,10 +169,6 @@ gc_variant = {
     "extra_flags": None
     }
 
-#  -fgo-optimize-allocs
-
-# NB: have had a lot of problems getting -O3 to work with gccgo
-
 gccgo_variant = {
     "tag": "gccgo",
     "order": 1,
@@ -175,7 +180,7 @@ gollvm_variant = {
     "tag": "gollvm",
     "order": 2,
     "install": None,
-    "extra_flags": "-O3 -static"
+    "extra_flags": "-O2 -static"
     }
 
 variants = {
@@ -280,6 +285,11 @@ def patch_repo(repo, flags):
   if rc == 0:
     u.verbose(1, "src/cmd/dist/buildtool.go already patched")
     return
+  # Remove any version file if it exists.
+  vfile = os.path.join(repo, "VERSION")
+  if not os.path.exists("go.repo"):
+    rmfile(vfile)
+  # Mangle build flags.
   regex = re.compile(r"^.+gcflags=.+$")
   oldf = "%s/src/cmd/dist/buildtool.go" % repo
   newf = "%s/src/cmd/dist/buildtool.go.patched" % repo
@@ -428,7 +438,7 @@ def benchprep(repo, variant):
   if not flag_dryrun:
     # harvest output
     doscmd("capture-go-compiler-invocation.py "
-           "-N -C -i %s -o %s" % (outfile, scriptfile))
+           "-N -A -C -i %s -o %s" % (outfile, scriptfile))
     # capture work dir
     workdir = None
     try:
@@ -463,6 +473,7 @@ def benchmark(repo, runscript, wrapcmd, tag):
       if flag_gomaxprocs:
         wf.write("export GOMAXPROCS=%s\n" % flag_gomaxprocs)
       wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % gccgo_install)
+      wf.write("go clean -cache\n")
       wf.write("cd %s/src/cmd/compile\n" % repo)
       wf.write("%s sh %s\n" % (wrapcmd, runscript))
       wf.write("if [ $? != 0 ]; then\n")
@@ -575,9 +586,11 @@ def process_variant(variant, ppo):
   work = None
   if flag_skip_benchrun:
     return
+
   # Step 1: run for time.
   work, runit = benchprep(build_dir, variant)
   benchmark(build_dir, runit, "/usr/bin/time", "tim")
+
   # Step 2: perf run
   if flag_doperf:
     perfwrap = "%s record -o %s/perf.data.%s" % (flag_perf, here, variant)
@@ -610,6 +623,15 @@ def process_variant(variant, ppo):
     dormdir(pprof_work)
     docmd("mkdir -p %s" % pprof_work)
     benchmark(build_dir, runit, "CPUPROFILE=%s" % pprof_work, "pprof")
+
+  # Step 4: auto-FDO perf.data collection run
+  if flag_collect_autofdo_perf:
+    here = os.getcwd()
+    autofdo_work = "%s/autofdoperf.files.%s" % (here, variant)
+    dormdir(autofdo_work)
+    docmd("mkdir -p %s" % autofdo_work)
+    benchmark(build_dir, runit, "AUTOFDOPROFILE=%s" % autofdo_work,
+              "autofdocollect")
 
   if work:
     if flag_keepwork:
@@ -708,7 +730,11 @@ def usage(msgarg):
     -M N  set GOMAXPROCS to N prior to bench run
     -P    preserve 'go build' workdirs
     -F V  process variant 'V' first (debugging)
+    -O V  process only variant 'V'
+    -A P  path to AutoFDO profile is P (for gollvm variant)
+    -T X  apply alternate tag X to run results
     -Z    include linux 'perf' runs
+    -Q    collect perf.data files for AutoFDO purposes
     -W P  path to 'perf' is P
 
     Example usage:
@@ -743,9 +769,10 @@ def parse_args():
   global flag_echo, flag_dryrun, flag_skip_bootstrap, flag_skip_benchrun
   global flag_keepwork, go_install, gccgo_install, flag_genhtml
   global flag_gomaxprocs, gollvm_install, flag_perf, flag_doperf
+  global flag_autofdoprofile, flag_othertag, flag_collect_autofdo_perf
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deBZNM:DHPg:G:L:F:W:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deBZNMQ:DHPg:G:L:F:W:A:T:O:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -770,14 +797,25 @@ def parse_args():
       flag_keepwork = True
     elif opt == "-Z":
       flag_doperf = True
+    elif opt == "-A":
+      if not os.path.exists(arg):
+        usage("can't access -A argument %s" % arg)
+      u.verbose(1, "using AutoFDO profile file %s" % arg)
+      flag_autofdoprofile = arg
     elif opt == "-H":
       flag_genhtml = True
     elif opt == "-M":
       u.verbose(1, "setting GOMAXPROCS to %s on bench run" % arg)
       flag_gomaxprocs = arg
+    elif opt == "-Q":
+      u.verbose(1, "enabling AUTOFDOPROFILE collect for this run")
+      flag_collect_autofdo_perf = True
     elif opt == "-W":
       u.verbose(1, "selecting %s as perf path" % arg)
       flag_perf = arg
+    elif opt == "-T":
+      flag_othertag = arg
+      u.verbose(0, "applying alternate tag %s to run output" % arg)
     elif opt == "-F":
       if arg not in variants:
         usage("can't find specified variant '%s'" % arg)
@@ -792,6 +830,17 @@ def parse_args():
             break
         variants[arg]["order"] = 0
         variants[firstvariant]["order"] = oord
+    elif opt == "-O":
+      if arg not in variants:
+        usage("can't find specified variant '%s'" % arg)
+      u.verbose(1, "selecting %s as only variant" % arg)
+      todel = []
+      for v in variants:
+        if v != arg:
+          todel.append(v)
+      for v in todel:
+        del variants[v]
+      variants[arg]["order"] = 0
     elif opt == "-G":
       u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg
@@ -806,16 +855,17 @@ def parse_args():
       variants["gc"]["install"] = go_install
 
   # Make sure go install look ok
-  if not os.path.exists(go_install):
-    usage("unable to locate go installation %s" % go_install)
-  if not os.path.isdir(go_install):
-    usage("go installation %s not a directory" % go_install)
-  gobin = os.path.join(go_install, "bin/go")
-  if not os.path.exists(gobin):
-    usage("bad go installation, can't access %s" % gobin)
+  if "gc" in variants:
+    if not os.path.exists(go_install):
+      usage("unable to locate go installation %s" % go_install)
+    if not os.path.isdir(go_install):
+      usage("go installation %s not a directory" % go_install)
+    gobin = os.path.join(go_install, "bin/go")
+    if not os.path.exists(gobin):
+      usage("bad go installation, can't access %s" % gobin)
 
   # Make sure gccgo install looks ok if specified
-  if gccgo_install:
+  if "gccgo" in variants:
     if not os.path.exists(gccgo_install):
       usage("unable to locate gccgo installation %s" % gccgo_install)
     if not os.path.isdir(gccgo_install):
@@ -825,7 +875,7 @@ def parse_args():
       usage("bad gccgo installation, can't access %s" % gccgobin)
 
   # Make sure gollvm install looks ok if specified
-  if gollvm_install:
+  if "gollvm" in variants:
     if not os.path.exists(gollvm_install):
       usage("unable to locate gollvm installation %s" % gollvm_install)
     if not os.path.isdir(gollvm_install):

@@ -34,6 +34,12 @@ flag_gccgo_gdb = None
 # Set to true to emit cpuprofile code
 flag_cpuprofile = False
 
+# Set to true to emit Auto-FDO collection code
+flag_autofdoprofile = False
+
+# Path to 'perf' to use for with auto-FDO collection
+flag_perfbin = "perf"
+
 # Emit "-c 1" to compile commands to disable parallel backend
 flag_nopar = False
 
@@ -47,6 +53,9 @@ workdir = None
 # Drivers we encounter while scanning the build output
 drivers = {}
 driver_count = 0
+
+# Driver flavor (indexed by driver var). Key is one of: "gc", "gccgo", "gollvm"
+driver_flavor = {}
 
 
 def mktempname(salt, instance):
@@ -84,18 +93,32 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
     args.append(arg)
 
   cparg = ""
+  preamble = ""
+  outf.write("parg=""\n")
+  outf.write("pwrap=""\n")
+  outf.write("PRELOAD=""\n")
+  outf.write("pcount=`expr $pcount + 1`\n")
   if flag_cpuprofile:
-    outf.write("pcount=`expr $pcount + 1`\n")
-    outf.write("parg=""\n")
     outf.write("if [ \"$CPUPROFILE\" != \"\" ]; then\n")
-    outf.write("  parg=-cpuprofile=$CPUPROFILE/p${pcount}.p\n")
+    if driver_flavor[driver_var] == "gc":
+      outf.write("  parg=-cpuprofile=$CPUPROFILE/p${pcount}.p\n")
+    else:
+      outf.write("  export PROFDEST=$CPUPROFILE/p${pcount}.p\n")
+      outf.write("  PRELOAD=/usr/lib/libprofiler.so.0 \n")
+      preamble = "CPUPROFILE=$PROFDEST LD_PRELOAD=${PRELOAD} "
     outf.write("fi\n")
     cparg = " $parg"
+  if flag_autofdoprofile:
+    outf.write("if [ \"$AUTOFDOPROFILE\" != \"\" ]; then\n")
+    outf.write("  pwrap=\"%s record -e cycles -c 100000 -b -o "
+               "$AUTOFDOPROFILE/perf.data.${pcount}\"\n" % flag_perfbin)
+    outf.write("fi\n")
   nparg = ""
   if flag_nopar:
     nparg = " -c 1"
-  outf.write("setarch x86_64 -R ${%s} %s %s $* %s \n" % (driver_var, cparg,
-                                                         nparg, " ".join(args)))
+  outf.write("%ssetarch x86_64 -R ${pwrap} ${%s} "
+             "%s %s $* %s \n" % (preamble, driver_var, cparg,
+                                 nparg, " ".join(args)))
   if gosrcfiles:
     u.verbose(0, "extracted compile cmd for: %s" % " ".join(srcfiles))
   if flag_gccgo_gdb and flag_gccgo_gdb in gosrcfiles:
@@ -121,6 +144,7 @@ def perform_extract(inf, outf):
 
   regwrk = re.compile(r"^WORK=(\S+)$")
   reggcg = re.compile(r"^(\S+/bin/gccgo)\s+(.+)$")
+  regglm = re.compile(r"^(\S+/bin/llvm-goc)\s+(.+)$")
   reggc = re.compile(r"^(\S+/compile)\s+(.+)$")
   regcd = re.compile(r"^cd (\S+)\s*$")
   regar = re.compile(r"^ar .+$")
@@ -138,6 +162,7 @@ def perform_extract(inf, outf):
     line = inf.readline()
     if not line:
       break
+    dflavor = ""
     u.verbose(2, "line is %s" % line.strip())
     mwrk = regwrk.match(line)
     if mwrk:
@@ -183,13 +208,20 @@ def perform_extract(inf, outf):
       continue
     mgc = reggc.match(line)
     mgcg = reggcg.match(line)
-    if not mgc and not mgcg:
+    mgcglm = regglm.match(line)
+    if not mgc and not mgcg and not mgcglm:
       continue
     if mgc:
       driver = mgc.group(1)
+      dflavor = "gc"
       argstring = mgc.group(2)
+    elif mgcglm:
+      driver = mgcglm.group(1)
+      dflavor = "gollvm"
+      argstring = mgcglm.group(2)
     else:
       driver = mgcg.group(1)
+      dflavor = "gccgo"
       argstring = mgcg.group(2)
 
     u.verbose(1, "matched: %s %s" % (driver, argstring))
@@ -200,6 +232,7 @@ def perform_extract(inf, outf):
     else:
       outf.write("%s=%s\n" % (driver_var, driver))
       drivers[driver] = driver_var
+      driver_flavor[driver_var] = dflavor
       driver_count += 1
     if extract_line(outf, driver, driver_var, argstring, cdir) < 0:
       break
@@ -321,6 +354,10 @@ def usage(msgarg):
           with -v to capture args and emits .gdbinit, etc.
     -C    augment output script with -cpuprofile cmds (set CPUPROFILE
           to tgt dir prior to executing script)
+    -A    augment output script to collect perf.data files for
+          each run (set AUTOFDOPROFILE to tgt dir prior to script execution)
+    -P X  path to 'perf' binary is X
+          to tgt dir prior to executing script)
     -N    add "-c 1" to all compile commands captured
 
     Examples:
@@ -345,9 +382,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_infile, flag_outfile, flag_single
   global flag_gccgo_gdb, flag_relocate, flag_cpuprofile, flag_nopar
+  global flag_autofdoprofile, flag_perfbin
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:CSN")
+    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:CASNP:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -363,8 +401,12 @@ def parse_args():
       flag_gccgo_gdb = arg
     elif opt == "-C":
       flag_cpuprofile = True
+    elif opt == "-A":
+      flag_autofdoprofile = True
     elif opt == "-N":
       flag_nopar = True
+    elif opt == "-P":
+      flag_perfbin = arg
     elif opt == "-R":
       flag_relocate = arg
       if flag_relocate[0] != "/":
