@@ -22,9 +22,10 @@ Would be rewritten as
     <0>   DW_AT_type        : <0x10>
 
 You can also request that all offsets and PC info be stripped, although that can
-can obscure some important differences.
+can obscure some important differences. Abstract origin references are tracked
+and annotated (unless disabled).
 
-Abstract origin references are tracked and annotated (unless disabled).
+
 """
 
 import getopt

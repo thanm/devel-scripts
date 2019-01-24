@@ -138,15 +138,17 @@ gccgo_install = None
 gollvm_install = None
 
 # Hard-coded list of functions to analyze more closely
-interesting_funcs = [("cmd/compile/internal/gc.escwalkBody",
-                      "gc.escwalkBody"),
-                     ("cmd/compile/internal/ssa.cmpVal",
-                      "ssa.cmpVal"),
-                     ("cmd/compile/internal/ssa.applyRewrite",
-                      "ssa.applyRewrite"),
-                     ("cmd/compile/internal/ssa.liveValues",
-                      "ssa.liveValues.isra.197"),
-                     (None, "ssa.$thunk9")]
+interesting_funcs = [("runtime.scanobject",
+                      "runtime.scanobject"),
+                     ("runtime.mallocgc",
+                      "runtime.mallocgc"),
+                     ("runtime.heapBits.next",
+                      "runtime.heapBits.next"),
+                     ("runtime.heapBitsSetType",
+                      "runtime.heapBitsSetType"),
+                     ("bootstrap/cmd/compile/internal/ssa.applyRewrite",
+                      "bootstrap..z2fcmd..z2fcompile.."
+                      "z2finternal..z2fssa.applyRewrite")]
 
 # If filled in, then set GOMAXPROCS to this value
 flag_gomaxprocs = None
@@ -182,6 +184,16 @@ gollvm_variant = {
     "install": None,
     "extra_flags": "-O2 -static"
     }
+
+gollvm3_variant = {
+    "tag": "gollvm",
+    "derived": "gollvm",
+    "order": 3,
+    "install": None,
+    "extra_flags": "-O3 -static"
+    }
+
+# "gollvm3": gollvm3_variant,
 
 variants = {
     "gc": gc_variant,
@@ -379,7 +391,8 @@ def bootstrap(repo, goroot, variant):
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
       wf.write("export GOROOT_BOOTSTRAP=%s\n" % goroot)
-      if variant == "gccgo" or variant == "gollvm":
+      vtag = variants[variant]["tag"]
+      if vtag == "gccgo" or vtag == "gollvm":
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src\n" % repo)
       wf.write("export GOOS=linux\n")
@@ -419,7 +432,8 @@ def benchprep(repo, variant):
       wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
-      if variant == "gccgo" or variant == "gollvm":
+      vtag = variants[variant]["tag"]
+      if vtag == "gccgo" or vtag == "gollvm":
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src/cmd/compile\n" % repo)
       wf.write("rm -rf %s/pkg/*inux_amd64/cmd/compile\n" % goroot)
@@ -494,13 +508,15 @@ def ppo_append(ppo, cmd, outf):
   if flag_dryrun:
     u.verbose(0, "%s" % cmd)
     return
-  errf = "/tmp/ppoerr.%d.%d" % (ppolines, len(cmd))
+  errf = "/tmp/ppo-err.%d.%d" % (ppolines, len(cmd))
+  if not outf:
+    outf = "/tmp/ppo-out.%d.%d" % (ppolines, len(cmd))
   ppolines += 1
   ppo.write("%s 1> %s 2> %s &\n" % (cmd, outf, errf))
   ppo.write("PIDS=\"$PIDS $!:%s\"\n" % errf)
 
 
-def annotate(func, tag, fn, ppo):
+def annotate(func, tag, fn, ppo, perf_work):
   """Run 'perf annotate' on a specified function."""
   # Check to see if function present in perf report
   repfile = "rep.%s.txt" % tag
@@ -522,14 +538,14 @@ def annotate(func, tag, fn, ppo):
       u.warning("skipping annotate for %s, could not "
                 "find in %s" % (func, repfile))
       return
-  report_file = "ann%d.%s.txt" % (fn, tag)
+  report_file = "%s/ann%d.%s.txt" % (perf_work, fn, tag)
   ppo_append(ppo,
              "%s annotate -i perf.data.%s "
              "-s %s" % (flag_perf, tag, func), report_file)
   generated_reports[report_file] = 1
 
 
-def disas(func, repo, tag, fn, ppo):
+def disas(func, repo, tag, fn, ppo, perf_work):
   """Disassemble a specified function."""
   # 00691d40 g     F .text      00000632 ssa.applyRewrite
   regex = re.compile(r"^(\S+)\s.+\s(\S+)\s+(\S+)$")
@@ -561,17 +577,37 @@ def disas(func, repo, tag, fn, ppo):
     u.verbose(0, "... malformed staddr/size (%s, %s) "
               "for %s, skipping" % (hexstaddr, hexsize, func))
     return
-  asm_file = "asm%d.%s.txt" % (fn, tag)
+  asm_file = "%s/asm%d.%s.txt" % (perf_work, fn, tag)
   ppo_append(ppo,
              "objdump -dl --start-address=0x%x "
              "--stop-address=0x%x %s" % (staddr, enaddr, tgt),
              asm_file)
   generated_reports[asm_file] = 1
-  pprof_file = "pprofdis%d.%s.txt" % (fn, tag)
+  pprof_file = "%s/pprofdis%d.%s.txt" % (perf_work, fn, tag)
   ppo_append(ppo,
              "pprof --disasm=%s perf.data.%s " % (func, tag),
              pprof_file)
   generated_reports[pprof_file] = 1
+
+
+def emit_pprof_postprocess(pprof_work, variant, ppo):
+  """Emit commands to generate pprof reports."""
+  outdir = pprof_work
+  cmd = "do-pprof-cpuprofile.py"
+  binary = "bootstrap.%s/pkg/tool/linux_amd64/compile" % variant
+  tag = variant
+  if flag_dryrun:
+    infstr = "somefiles.p:otherfiles.p"
+  else:
+    infiles = []
+    reg = re.compile(r"^p\d+\.p$")
+    for item in os.listdir(outdir):
+      m = reg.match(item)
+      if m:
+        infiles.append("%s/%s" % (outdir, item))
+    infstr = ":".join(infiles)
+  ppo_append(ppo, "%s -i %s -o %s "
+             "-b %s -t %s" % (cmd, infstr, outdir, binary, tag), None)
 
 
 def process_variant(variant, ppo):
@@ -593,27 +629,28 @@ def process_variant(variant, ppo):
 
   # Step 2: perf run
   if flag_doperf:
-    perfwrap = "%s record -o %s/perf.data.%s" % (flag_perf, here, variant)
+    here = os.getcwd()
+    perf_work = "%s/perf.files.%s" % (here, variant)
+    dormdir(perf_work)
+    docmd("mkdir -p %s" % perf_work)
+    pdfile = "%s/perf.data.%s" % (perf_work, variant)
+    perfwrap = "%s record -o %s" % (flag_perf, pdfile)
     benchmark(build_dir, runit, perfwrap, "perf")
     # report
-    report_file = "rep.%s.txt" % variant
-    docmdout("%s report -i perf.data.%s" % (flag_perf, variant), report_file)
+    report_file = "%s/rep.%s.txt" % (perf_work, variant)
+    docmderrout("%s report -i %s" % (flag_perf, pdfile), report_file)
     u.trim_perf_report_file(report_file)
     generated_reports[report_file] = 1
-    # pprof top
-    preport_file = "pproftop.%s.txt" % variant
-    ppo_append(ppo, "pprof --top perf.data.%s " % variant,
-               preport_file)
-    generated_reports[preport_file] = 1
 
     # annotate and disassemble a couple of functions
     fn = 1
     for tup in interesting_funcs:
       f, gf = tup
-      if variant == "gccgo":
+      vtag = variants[variant]["tag"]
+      if vtag == "gccgo" or vtag == "gollvm":
         f = gf
-      annotate(f, variant, fn, ppo)
-      disas(f, build_dir, variant, fn, ppo)
+      annotate(f, variant, fn, ppo, perf_work)
+      disas(f, build_dir, variant, fn, ppo, perf_work)
       fn += 1
 
   # Step 3: pprof run
@@ -623,6 +660,7 @@ def process_variant(variant, ppo):
     dormdir(pprof_work)
     docmd("mkdir -p %s" % pprof_work)
     benchmark(build_dir, runit, "CPUPROFILE=%s" % pprof_work, "pprof")
+    emit_pprof_postprocess(pprof_work, variant, ppo)
 
   # Step 4: auto-FDO perf.data collection run
   if flag_collect_autofdo_perf:
@@ -854,8 +892,15 @@ def parse_args():
       go_install = arg
       variants["gc"]["install"] = go_install
 
+  flavors = {}
+  for v in variants:
+    t = variants[v]["tag"]
+    flavors[t] = 1
+
   # Make sure go install look ok
-  if "gc" in variants:
+  if "gc" in flavors:
+    if not go_install:
+      usage("specify Go installation with -g option")
     if not os.path.exists(go_install):
       usage("unable to locate go installation %s" % go_install)
     if not os.path.isdir(go_install):
@@ -865,7 +910,9 @@ def parse_args():
       usage("bad go installation, can't access %s" % gobin)
 
   # Make sure gccgo install looks ok if specified
-  if "gccgo" in variants:
+  if "gccgo" in flavors:
+    if not gccgo_install:
+      usage("specify Gccgo installation with -G option")
     if not os.path.exists(gccgo_install):
       usage("unable to locate gccgo installation %s" % gccgo_install)
     if not os.path.isdir(gccgo_install):
@@ -875,7 +922,9 @@ def parse_args():
       usage("bad gccgo installation, can't access %s" % gccgobin)
 
   # Make sure gollvm install looks ok if specified
-  if "gollvm" in variants:
+  if "gollvm" in flavors:
+    if not gollvm_install:
+      usage("specify Gollvm installation with -L option")
     if not os.path.exists(gollvm_install):
       usage("unable to locate gollvm installation %s" % gollvm_install)
     if not os.path.isdir(gollvm_install):
@@ -883,6 +932,14 @@ def parse_args():
     gollvmbin = os.path.join(gollvm_install, "bin/llvm-goc")
     if not os.path.exists(gollvmbin):
       usage("bad gollvm installation, can't access %s" % gollvmbin)
+
+  # Fill in derived variants
+  for v in variants:
+    if "derived" in variants[v]:
+      der = variants[v]["derived"]
+      variants[v]["install"] = variants[der]["install"]
+      u.verbose(1, "using %s install for variant %s" % (v, der))
+
 
 #
 #......................................................................
