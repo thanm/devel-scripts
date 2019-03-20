@@ -28,12 +28,15 @@ flag_offset_to_find = None
 # Load module to examine
 flag_loadmodule = None
 
+# What to run as 'objdump'
+flag_objdump = None
+
 
 def perform():
   """Main driver routine."""
   # Step 1: dump only compilation unit info.
-  cmd = ("objdump --dwarf=info "
-         "--dwarf-depth=0 %s" % flag_loadmodule)
+  cmd = ("%s --dwarf=info "
+         "--dwarf-depth=0 %s" % (flag_objdump, flag_loadmodule))
   u.verbose(1, "running: %s" % cmd)
   lines = u.docmdlines(cmd)
   cre = re.compile(r"^\s*Compilation Unit \@ offset 0x(\S+)\:\s*$")
@@ -62,8 +65,8 @@ def perform():
               "dumping last CU at offset %x" % (flag_offset_to_find, maxoff))
 
   # Step 2: issue the dump
-  cmd = ("objdump --dwarf=info "
-         "--dwarf-start=%d %s" % (selectoff, flag_loadmodule))
+  cmd = ("%s --dwarf=info "
+         "--dwarf-start=%d %s" % (flag_objdump, selectoff, flag_loadmodule))
   u.verbose(1, "dump cmd is: %s" % cmd)
   args = shlex.split(cmd)
   mypipe = subprocess.Popen(args, stdout=subprocess.PIPE)
@@ -93,6 +96,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -m M  input load module is M
     -x X  dump only compilation unit containing DIE with offset O
+    -T Y  run 'objdump' via command Y
 
     Example usage:
 
@@ -105,10 +109,10 @@ def usage(msgarg):
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_offset_to_find, flag_loadmodule
+  global flag_offset_to_find, flag_loadmodule, flag_objdump
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dm:x:")
+    optlist, args = getopt.getopt(sys.argv[1:], "dm:x:T:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -119,6 +123,8 @@ def parse_args():
   for opt, arg in optlist:
     if opt == "-d":
       u.increment_verbosity()
+    elif opt == "-T":
+      flag_objdump = arg
     elif opt == "-x":
       r = re.compile(r"^0x(\S+)$")
       m = r.match(arg)
@@ -142,6 +148,17 @@ def parse_args():
     usage("specify loadmodule -m")
   if not flag_offset_to_find:
     usage("specify offset to find with -x")
+
+  # Pick objdump variant based on Os.
+  if not flag_objdump:
+    lines = u.docmdlines("uname")
+    if not lines:
+      u.error("unable to run/interpret 'uname'")
+    if lines[0] == "Darwin":
+      flag_objdump = "gobjdump"
+    else:
+      flag_objdump = "objdump"
+
 
 #
 #......................................................................
