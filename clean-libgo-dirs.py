@@ -1,5 +1,5 @@
-#!/usr/bin/python
-"""Script to clean all object files in libgo subdirs in GCC build dir.
+#!/usr/bin/python3
+"""Script to clean object files in GCC/Gollvm build dir libgo subdirs.
 
 """
 
@@ -61,8 +61,22 @@ def do_clean(subdir):
   dochdir(here)
 
 
-def perform():
-  """Top level driver routine."""
+def do_gollvm_clean():
+  """Clean a gollv build dir."""
+  lgd = "tools/gollvm/libgo"
+  u.verbose(1, "visiting %s" % lgd)
+  do_clean(lgd)
+  files = ["vet", "test2json", "buildid", "go", "gofmt", "cgo"]
+  for f in files:
+    p = "tools/gollvm/gotools/" + f
+    if os.path.exists(p):
+      u.verbose(1, "cleaning %s" % p)
+    if not flag_dryrun:
+      os.unlink(p)
+
+
+def do_gccgo_clean():
+  """Clean a gccgo build dir."""
   if not os.path.exists("config.log"):
     u.error("no 'config.log' here -- needs to be run in GCC build dir")
   lines = u.docmdlines("find . -depth -name libgo -print")
@@ -71,6 +85,23 @@ def perform():
   for lgd in libgodirs:
     u.verbose(1, "visiting %s" % lgd)
     do_clean(lgd)
+  files = ["vet", "test2json", "buildid", "go", "gofmt", "cgo"]
+  for f in files:
+    p = "gotools/" + f
+    if not flag_dryrun and os.path.exists(p):
+      u.verbose(1, "cleaning %s" % p)
+      os.unlink(p)
+
+
+def perform():
+  """Top level driver routine."""
+  if os.path.exists("config.log"):
+    do_gccgo_clean()
+  elif os.path.exists("CMakeCache.txt"):
+    do_gollvm_clean()
+  else:
+    u.error("no 'config.log' or 'CMakeCache.txt' here -- "
+            "needs to be run in gccgo or gollvm build dir")
 
 
 def usage(msgarg):
@@ -78,14 +109,14 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

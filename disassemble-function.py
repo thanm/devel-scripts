@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Disassemble a specific function from a load module.
 
 """
@@ -168,7 +168,7 @@ def disas(func, tgt):
          "--stop-address=0x%x %s" % (staddr, enaddr, tgt))
   if flag_dwarf_cu and not flag_dryrun:
     lines = u.docmdlines(cmd)
-    dodwarf(lines)
+    dodwarf(lines, tgt)
   else:
     docmd(cmd)
 
@@ -243,7 +243,7 @@ def collect_die_nametag(attrs, off, tag, dies):
   if "DW_AT_name" in attrs:
     return attrs["DW_AT_name"]
 
-  for attr, val in attrs.iteritems():
+  for attr, val in attrs.items():
     u.verbose(2, "++ %s => %s" % (attr, val))
 
   # Not named -> look at abstract origin
@@ -275,7 +275,7 @@ def collect_ranged_items(lm, dies):
   # Ranges refs (stored as decimal offset)
   rlrefs = defaultdict(list)
 
-  for off, lines in dies.iteritems():
+  for off, lines in dies.items():
     _, tag, attrs = expand_die(lines)
 
     # Does it have a PC range?
@@ -365,7 +365,7 @@ def postprocess_rangerefs(lm, rlrefs, dies, results):
     u.verbose(3, "unmatched line in .debug_ranges: %s" % l)
 
   # OK, now post-process to create items of interest
-  for roff, tlist in rlrefs.iteritems():
+  for roff, tlist in rlrefs.items():
     if roff not in refranges:
       u.verbose(1, "could not locate offset %x in .debug_ranges" % off)
       continue
@@ -380,10 +380,8 @@ def postprocess_rangerefs(lm, rlrefs, dies, results):
   return results
 
 
-def dodwarf(asmlines):
+def dodwarf(asmlines, lm):
   """Annotate disassembly with DWARF info."""
-  lms = flag_loadmodules.keys()
-  lm = lms[0]
   u.verbose(1, "inspecting DWARF for %s" % lm)
 
   # Initial pass to collect load modules
@@ -393,7 +391,7 @@ def dodwarf(asmlines):
   cu_offset = None
   if flag_dwarf_cu != ".":
     # Try to find correct DWARF CU
-    for off, lines in dies.iteritems():
+    for off, lines in dies.items():
       abbrev, tag, attrs = expand_die(lines)
       if tag != "DW_TAG_compile_unit":
         continue
@@ -420,7 +418,7 @@ def dodwarf(asmlines):
         abbrev, tag, attrs = expand_die(dlines)
         u.verbose(2, "DIE at offset %s: abbrev %s "
                   "tag %s" % (off, abbrev, tag))
-        for attr, val in attrs.iteritems():
+        for attr, val in attrs.items():
           u.verbose(2, " %s => %s" % (attr, val))
 
     # Collect ranged items
@@ -484,7 +482,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -501,7 +499,7 @@ def usage(msgarg):
 
     $ %s -f bytes.ReadFrom.pN12_bytes.Buffer -m libgo.so.10.0.0
 
-    """ % (me, me)
+    """ % (me, me))
 
   sys.exit(1)
 

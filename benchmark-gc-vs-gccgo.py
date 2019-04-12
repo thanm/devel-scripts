@@ -83,6 +83,7 @@ Scripts generated along the way:
 """
 
 import getopt
+from operator import itemgetter
 import os
 import re
 import shutil
@@ -165,41 +166,40 @@ generated_reports = {}
 # Variants/flavors that we're benchmarking
 
 gc_variant = {
-    "tag": "gc",
+    "compiler": "gc",
     "order": 0,
     "install": None,
     "extra_flags": None
     }
 
 gccgo_variant = {
-    "tag": "gccgo",
+    "compiler": "gccgo",
     "order": 1,
     "install": None,
     "extra_flags": "-O2 -static"
     }
 
 gollvm_variant = {
-    "tag": "gollvm",
+    "compiler": "gollvm",
     "order": 2,
     "install": None,
     "extra_flags": "-O2 -static"
     }
 
 gollvm3_variant = {
-    "tag": "gollvm",
-    "derived": "gollvm",
+    "compiler": "gollvm",
     "order": 3,
     "install": None,
     "extra_flags": "-O3 -static"
     }
 
-# "gollvm3": gollvm3_variant,
-
 variants = {
     "gc": gc_variant,
     "gccgo": gccgo_variant,
     "gollvm": gollvm_variant,
+    "gollvm3": gollvm3_variant,
     }
+orig_variants = variants
 
 
 def docmd(cmd):
@@ -351,7 +351,8 @@ def repo_setup():
         rmdir(c)
       u.verbose(0, "copying go.repo into %s" % c)
       copydir("go.repo", c)
-      if v != "gc":
+      comp = variants[v]["compiler"]
+      if comp != "gc":
         # Patch repo to insure that gccgo build is with -O2 or -O3
         patch_repo(c, variants[v]["extra_flags"])
 
@@ -391,8 +392,8 @@ def bootstrap(repo, goroot, variant):
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
       wf.write("export GOROOT_BOOTSTRAP=%s\n" % goroot)
-      vtag = variants[variant]["tag"]
-      if vtag == "gccgo" or vtag == "gollvm":
+      vcomp = variants[variant]["compiler"]
+      if vcomp == "gccgo" or vcomp == "gollvm":
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src\n" % repo)
       wf.write("export GOOS=linux\n")
@@ -432,8 +433,8 @@ def benchprep(repo, variant):
       wf.write("#!/bin/sh\n")
       wf.write("set -x\n")
       wf.write("export PATH=%s/bin:$PATH\n" % goroot)
-      vtag = variants[variant]["tag"]
-      if vtag == "gccgo" or vtag == "gollvm":
+      vcomp = variants[variant]["compiler"]
+      if vcomp == "gccgo" or vcomp == "gollvm":
         wf.write("export LD_LIBRARY_PATH=%s/lib64\n" % goroot)
       wf.write("cd %s/src/cmd/compile\n" % repo)
       wf.write("rm -rf %s/pkg/*inux_amd64/cmd/compile\n" % goroot)
@@ -646,8 +647,8 @@ def process_variant(variant, ppo):
     fn = 1
     for tup in interesting_funcs:
       f, gf = tup
-      vtag = variants[variant]["tag"]
-      if vtag == "gccgo" or vtag == "gollvm":
+      vcomp = variants[variant]["compiler"]
+      if vcomp == "gccgo" or vcomp == "gollvm":
         f = gf
       annotate(f, variant, fn, ppo, perf_work)
       disas(f, build_dir, variant, fn, ppo, perf_work)
@@ -727,10 +728,18 @@ def generate_html():
 
 
 def order_variants():
-  """Select variants by order."""
-  ret = [None] * len(variants)
-  for v in variants:
-    ret[variants[v]["order"]] = v
+  """Return variants listed by order."""
+  ret = []
+  for ii in range(0, len(variants)):
+    found = False
+    for v in variants:
+      o = variants[v]["order"]
+      if o == ii:
+        ret.append(v)
+        found = True
+        break
+    if not found:
+      u.error("internal error: can't find variant with order %d" % ii)
   return ret
 
 
@@ -745,6 +754,42 @@ def perform():
   run_ppo_cmds(outf, ppo)
   if flag_genhtml:
     generate_html()
+
+
+def select_subset(topick):
+  """Select a subset of variants."""
+  todel = []
+  for v in variants:
+    if v not in topick:
+      todel.append(v)
+  for v in todel:
+    del variants[v]
+  rawtups = []
+  for v in variants:
+    tup = (v, variants[v]["order"])
+    rawtups.append(tup)
+  stups = sorted(rawtups, key=itemgetter(1, 0))
+  for v in variants:
+    tup = (v, variants[v]["order"])
+  for ii in range(0, len(stups)):
+    tup = stups[ii]
+    v = tup[0]
+    variants[v]["order"] = ii
+
+
+def variants_to_string():
+  """Produce a string representation of available variants."""
+  s = ""
+  for v in orig_variants:
+    c = orig_variants[v]["compiler"]
+    o = orig_variants[v]["order"]
+    f = orig_variants[v]["extra_flags"]
+    s += """    tag: %s
+      compiler: %s
+      order: %d
+      extra_flags: %s
+""" % (v, c, o, f)
+  return s
 
 
 def usage(msgarg):
@@ -768,12 +813,16 @@ def usage(msgarg):
     -M N  set GOMAXPROCS to N prior to bench run
     -P    preserve 'go build' workdirs
     -F V  process variant 'V' first (debugging)
-    -O V  process only variant 'V'
+    -O S  process only variants in 'S' (comma-separated list)
     -A P  path to AutoFDO profile is P (for gollvm variant)
     -T X  apply alternate tag X to run results
     -Z    include linux 'perf' runs
     -Q    collect perf.data files for AutoFDO purposes
     -W P  path to 'perf' is P
+
+    Current list of variants:
+
+%s
 
     Example usage:
 
@@ -797,7 +846,7 @@ def usage(msgarg):
       to compare the performance of "gc-compiled" vs "gccgo-compiled"
       cs "gollvm-compiled" compiler binary
 
-    """ % (me, me)
+    """ % (me, variants_to_string(), me)
 
   sys.exit(1)
 
@@ -818,6 +867,7 @@ def parse_args():
   if args:
     usage("unknown extra args: %s" % " ".join(args))
 
+  installs = {}
   for opt, arg in optlist:
     if opt == "-d":
       u.increment_verbosity()
@@ -869,33 +919,29 @@ def parse_args():
         variants[arg]["order"] = 0
         variants[firstvariant]["order"] = oord
     elif opt == "-O":
-      if arg not in variants:
-        usage("can't find specified variant '%s'" % arg)
-      u.verbose(1, "selecting %s as only variant" % arg)
-      todel = []
-      for v in variants:
-        if v != arg:
-          todel.append(v)
-      for v in todel:
-        del variants[v]
-      variants[arg]["order"] = 0
+      topick = arg.split(",")
+      for t in topick:
+        if t not in variants:
+          usage("can't find specified variant '%s'" % t)
+      u.verbose(1, "selecting %s as only variant(s)" % arg)
+      select_subset(topick)
     elif opt == "-G":
       u.verbose(1, "setting gccgo_install to %s" % arg)
       gccgo_install = arg
-      variants["gccgo"]["install"] = gccgo_install
+      installs["gccgo"] = arg
     elif opt == "-L":
       u.verbose(1, "setting gollvm_install to %s" % arg)
       gollvm_install = arg
-      variants["gollvm"]["install"] = gollvm_install
+      installs["gollvm"] = arg
     elif opt == "-g":
       u.verbose(1, "setting go_install to %s" % arg)
       go_install = arg
-      variants["gc"]["install"] = go_install
+      installs["gc"] = arg
 
   flavors = {}
-  for v in variants:
-    t = variants[v]["tag"]
-    flavors[t] = 1
+  for v in flavors:
+    c = variants[v]["compiler"]
+    flavors[c] = 1
 
   # Make sure go install look ok
   if "gc" in flavors:
@@ -933,12 +979,14 @@ def parse_args():
     if not os.path.exists(gollvmbin):
       usage("bad gollvm installation, can't access %s" % gollvmbin)
 
-  # Fill in derived variants
+  # Fill in install value for all variants with selected flavors
   for v in variants:
-    if "derived" in variants[v]:
-      der = variants[v]["derived"]
-      variants[v]["install"] = variants[der]["install"]
-      u.verbose(1, "using %s install for variant %s" % (v, der))
+    c = variants[v]["compiler"]
+    if c not in installs:
+      usage("selected variant %s needs compiler %s, but "
+            "no install specified" % (v, c))
+    variants[v]["install"] = installs[c]
+    u.verbose(1, "using %s install for variant %s" % (c, v))
 
 
 #

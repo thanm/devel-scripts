@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Run 'dmesg' on connected device and post-process timestamps.
 
 Runs 'dmesg' on the currently connected Android device and rewrites
@@ -64,7 +64,7 @@ def human_dmesg(device_uptime):
       microseconds = int(round(nanoseconds * 0.001))
       line = match.groupdict().get("line", "")
       t = uptime + timedelta(seconds=seconds, microseconds=microseconds)
-      print "[%s]%s" % (t.strftime(_datetime_format), line)
+      print("[%s]%s" % (t.strftime(_datetime_format), line))
     else:
       u.warning("unmatched line: %s" % line)
 

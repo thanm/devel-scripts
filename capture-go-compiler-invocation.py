@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Extracts compile commands from go build output.
 
 Reads either stdin or a specified input file, then post-processes to identify
@@ -6,6 +6,7 @@ go/gccgo compiler invocations. Output is post-processed to create a script that
 can be invoked to rerun the compile, or optionally is examined to select out the
 gccgo compiler invocation. Useful for doing compiler reruns and re-invocations
 under the debugger.
+
 """
 
 import getopt
@@ -42,6 +43,12 @@ flag_perfbin = "perf"
 
 # Emit "-c 1" to compile commands to disable parallel backend
 flag_nopar = False
+
+# Emit "setarch x86_64 -R" to compile commands to disable ASLR.
+flag_noaslr = False
+
+# Emit loop of N iterations around entire compile sequence.
+flag_emitloop = False
 
 # Captures first gccgo compilation line
 gccgo_invocation = None
@@ -96,7 +103,8 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
   preamble = ""
   outf.write("parg=""\n")
   outf.write("pwrap=""\n")
-  outf.write("PRELOAD=""\n")
+  if driver_flavor[driver_var] != "gc":
+    outf.write("PRELOAD=""\n")
   outf.write("pcount=`expr $pcount + 1`\n")
   if flag_cpuprofile:
     outf.write("if [ \"$CPUPROFILE\" != \"\" ]; then\n")
@@ -116,8 +124,11 @@ def extract_line(outf, driver, driver_var, argstring, curdir):
   nparg = ""
   if flag_nopar:
     nparg = " -c 1"
-  outf.write("%ssetarch x86_64 -R ${pwrap} ${%s} "
-             "%s %s $* %s \n" % (preamble, driver_var, cparg,
+  noaslr = "setarch x86_64 -R"
+  if flag_noaslr:
+    noaslr = ""
+  outf.write("%s%s ${pwrap} ${%s} "
+             "%s %s $* %s \n" % (preamble, noaslr, driver_var, cparg,
                                  nparg, " ".join(args)))
   if gosrcfiles:
     u.verbose(0, "extracted compile cmd for: %s" % " ".join(srcfiles))
@@ -154,8 +165,17 @@ def perform_extract(inf, outf):
   regeof = re.compile(r"^EOF\s*$")
 
   outf.write("#!/bin/sh\n")
+  outf.write("# [this file auto-generated via the command:]\n")
+  outf.write("# %s\n" % " ".join(sys.argv))
   if flag_cpuprofile:
     outf.write("pcount=0\n")
+  if flag_emitloop:
+    outf.write("ITER=0\n")
+    outf.write("if [ -z $LOOP_LIMIT ]; then\n")
+    outf.write("  LOOP_LIMIT=1\n")
+    outf.write("fi\n")
+    outf.write("while [ $ITER -lt $LOOP_LIMIT ];\ndo\n")
+    outf.write("ITER=`expr $ITER + 1`\n")
 
   cdir = "."
   while True:
@@ -236,6 +256,8 @@ def perform_extract(inf, outf):
       driver_count += 1
     if extract_line(outf, driver, driver_var, argstring, cdir) < 0:
       break
+  if flag_emitloop:
+    outf.write("done\n")
 
 
 def setup_gccgo_gdb():
@@ -297,7 +319,7 @@ def setup_gccgo_gdb():
       # Dump args
       u.verbose(0, "writing args to .gdbinit")
       try:
-        outf = open(".gdbinit", "wb")
+        outf = open(".gdbinit", "w")
       except IOError as e:
         u.error("unable to open %s: "
                 "%s" % (".gdbinit", e.strerror))
@@ -318,13 +340,13 @@ def perform():
   outf = sys.stdout
   if flag_infile:
     try:
-      inf = open(flag_infile, "rb")
+      inf = open(flag_infile, "r")
     except IOError as e:
       u.error("unable to open input file %s: "
               "%s" % (flag_infile, e.strerror))
   if flag_outfile:
     try:
-      outf = open(flag_outfile, "wb")
+      outf = open(flag_outfile, "w")
     except IOError as e:
       u.error("unable to open output file %s: "
               "%s" % (flag_outfile, e.strerror))
@@ -342,7 +364,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
@@ -359,6 +381,8 @@ def usage(msgarg):
     -P X  path to 'perf' binary is X
           to tgt dir prior to executing script)
     -N    add "-c 1" to all compile commands captured
+    -Z    prefix compile commands with setarch to disable ASLR.
+    -L    emit a loop of $LOOP_LIMIT iterations around entire compile.
 
     Examples:
 
@@ -374,7 +398,7 @@ def usage(msgarg):
        %s -i gobuild.txt -G blah.go
 
 
-    """ % (me, me, me)
+    """ % (me, me, me))
   sys.exit(1)
 
 
@@ -382,10 +406,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_infile, flag_outfile, flag_single
   global flag_gccgo_gdb, flag_relocate, flag_cpuprofile, flag_nopar
-  global flag_autofdoprofile, flag_perfbin
+  global flag_autofdoprofile, flag_perfbin, flag_noaslr, flag_emitloop
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:CASNP:")
+    optlist, args = getopt.getopt(sys.argv[1:], "di:o:R:G:CASZNP:L")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -393,12 +417,15 @@ def parse_args():
   if args:
     usage("extra unknown arguments")
   for opt, arg in optlist:
+    u.verbose(1, "++ examining opt %s arg %s" %  (opt, arg))
     if opt == "-d":
       u.increment_verbosity()
     elif opt == "-S":
       flag_single = True
     elif opt == "-G":
       flag_gccgo_gdb = arg
+    elif opt == "-Z":
+      flag_noaslr = arg
     elif opt == "-C":
       flag_cpuprofile = True
     elif opt == "-A":
@@ -407,6 +434,8 @@ def parse_args():
       flag_nopar = True
     elif opt == "-P":
       flag_perfbin = arg
+    elif opt == "-L":
+      flag_emitloop = True
     elif opt == "-R":
       flag_relocate = arg
       if flag_relocate[0] != "/":

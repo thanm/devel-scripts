@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to update LLVM or GCC trunk devel repo.
 
 Auto-detects either plain git or git-on-svn, then locates
@@ -38,16 +38,23 @@ def dochdir(thedir):
     u.error("chdir failed: %s" % err)
 
 
+def do_check(subdir):
+  """Make sure this repo has the master branch checked out."""
+  here = os.getcwd()
+  dn = os.path.dirname(subdir)
+  dochdir(dn)
+  lines = u.docmdlines("git rev-parse --abbrev-ref HEAD")
+  if lines[0] != "master":
+    u.error("error: repo at %s not on master "
+            "branch (on '%s' instead" % (dn, lines[0]))
+  dochdir(here)
+
+
 def do_fetch(subdir):
   """Fetch/update this repo."""
   here = os.getcwd()
   dn = os.path.dirname(subdir)
   dochdir(dn)
-  # check to make sure we are on master branch
-  lines = u.docmdlines("git rev-parse --abbrev-ref HEAD")
-  if lines[0] != "master":
-    u.error("error: repo at %s not on master "
-            "branch (on '%s' instead" % (dn, lines[0]))
   if os.path.exists(".git/svn"):
     docmd("git fetch")
     docmd("git svn rebase -l")
@@ -65,6 +72,9 @@ def perform():
   lines.reverse()
   repos = lines
   for r in repos:
+    u.verbose(1, "checking %s" % r)
+    do_check(r)
+  for r in repos:
     u.verbose(1, "visiting %s" % r)
     do_fetch(r)
 
@@ -74,14 +84,14 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Dump DWARF for single compile unit.
 
 Given a DIE offset O in hex format and a load module, use objdump to dump the
@@ -89,7 +89,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -102,7 +102,7 @@ def usage(msgarg):
 
     $ %s -m mprogram -x 0x40054
 
-    """ % (me, me)
+    """ % (me, me))
 
   sys.exit(1)
 

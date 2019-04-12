@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Utility functions for scripts in my bin diretory.
 
 This module contains common utilities such as wrappers for
@@ -210,7 +210,8 @@ def docmdinstring(cmd, instring):
   args = shlex.split(cmd)
   mypipe = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
   encoding = locale.getdefaultlocale()[1]
-  pout, perr = mypipe.communicate(instring)
+  sb = instring.encode("utf-8")
+  pout, perr = mypipe.communicate(sb)
   if mypipe.returncode != 0:
     if perr:
       decoded_err = perr.decode(encoding)

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Unit tests for script utils.
 
 """
@@ -63,9 +63,9 @@ class TestScriptUtilsMethods(unittest.TestCase):
   def test_docmdinout_pass(self):
     outf = tempfile.NamedTemporaryFile(mode="w", delete=True)
     inf = tempfile.NamedTemporaryFile(mode="w", delete=True)
-    inf.write("print 'foo'")
+    inf.write("print('foo')")
     inf.flush()
-    rc = u.docmdinout("python", inf.name, outf.name)
+    rc = u.docmdinout("python3", inf.name, outf.name)
     self.assertTrue(rc == 0)
     verif = open(outf.name, "r")
     lines = verif.readlines()
@@ -77,7 +77,7 @@ class TestScriptUtilsMethods(unittest.TestCase):
     inf = tempfile.NamedTemporaryFile(mode="w", delete=True)
     inf.write("flarpish")
     inf.flush()
-    rc = u.docmdinout("python -", inf.name, outf.name)
+    rc = u.docmdinout("python3 -", inf.name, outf.name)
     self.assertTrue(rc != 0)
 
   def test_docmdlines_pass(self):
@@ -90,7 +90,10 @@ class TestScriptUtilsMethods(unittest.TestCase):
 
   def test_docmdbytes_pass(self):
     somebytes = u.docmdbytes("expr 2 + 5")
-    self.assertTrue(somebytes[0] == b"7")
+    print("somebytes[0] is ", somebytes[0])
+    res = somebytes.decode("utf-8")
+    print("res is ", res)
+    self.assertTrue(res[0] == "7")
 
   def test_docmdbytes_fail(self):
     with self.assertRaises(Exception):
@@ -106,7 +109,7 @@ class TestScriptUtilsMethods(unittest.TestCase):
 
   def test_docmdinstring_fail(self):
     with self.assertRaises(Exception):
-      _ = u.docmdinstring("/bin/false", "xxx")
+      _ = u.docmdinstring("/tmp/bleat.sh", "xxx")
 
   def test_docmdwithtimeout_pass(self):
     rc = u.docmdwithtimeout("/bin/true", 2)
@@ -166,7 +169,7 @@ class TestScriptUtilsMethods(unittest.TestCase):
       with open(outf.name, "r") as rf:
         lines = rf.readlines()
         self.assertTrue(len(lines) == 1)
-        print "foo is: =%s=\n" % lines[0]
+        print("foo is: =%s=\n" % lines[0])
         self.assertTrue(lines[0] == "foo\n")
     except IOError:
       u.verbose(0, "re-open failed for %s" % outf.name)
