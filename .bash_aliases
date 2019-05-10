@@ -648,8 +648,8 @@ function run_git_meld_hash() {
     return
   fi
 
-  echo git difftool -y -t ${GRDIFF} $HASH1 $HASH2 $extr
-  git difftool -y -t ${GRDIFF} $HASH1 $HASH2 $extr
+  echo git difftool -y -d -t ${GRDIFF} $HASH1 $HASH2 $extr
+  git difftool -y -d -t ${GRDIFF} $HASH1 $HASH2 $extr
 }
 
 function run_git_meld_branch() {
@@ -677,8 +677,8 @@ function run_git_meld_branch() {
     return
   fi
 
-  echo git difftool -y -t ${GRDIFF} master $WORKB $EXTRA
-  git difftool -y -t ${GRDIFF} master $WORKB $EXTRA
+  echo git difftool -y -d -t ${GRDIFF} master $WORKB $EXTRA
+  git difftool -y -d -t ${GRDIFF} master $WORKB $EXTRA
 }
 
 function run_git_show_local_branch_status() {
@@ -1518,6 +1518,7 @@ function runalldotbash() {
   local HERE=`pwd`
   local FILE=""
   local HASH=""
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
 
   GR=`go env GOROOT`
   if [ $? != 0 ]; then
@@ -1552,7 +1553,7 @@ function runalldotbash() {
 
   # Decide where to put the results
   FILE=`echo $GR | tr / _`
-  FILE=${SSDTMP}/tmp/all.bash.${FILE}.${HASH}.txt
+  FILE=${SSDTMP}/tmp/all.bash.${FILE}.${WORKB}.${HASH}.txt
 
   # Echo, then run
   echo "bash all.bash &> $FILE"
@@ -1566,6 +1567,23 @@ function ge_no_aslr() {
   setarch `uname -m` -R emacs $ARGS &
   disown $!
 }
+
+function git_track_remote_branch() {
+  local B=$1
+  if [ -z "$B" ]; then
+    echo "error: supply branch name as arg"
+    return
+  fi	
+  local RB=`git branch --list -r origin/$B | tr -d " "`
+  echo RB is "=${RB}="
+  if [ "$RB" != "origin/$B" ]; then
+    echo "warning: can't find remote branch origin/$B, bailing"
+    return
+  fi
+  echo git branch --track $B $RB
+  git branch --track $B $RB
+}
+
 
 #......................................................................
 
@@ -1648,9 +1666,10 @@ alias glf='git log --name-only'
 alias gld='git log -p'
 alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
-alias gitmeld='git difftool -t ${GRDIFF} -y'
-alias gitmeldc='git difftool --cached -t ${GRDIFF} -y'
-alias gitmeldh='git difftool -t ${GRDIFF} -y HEAD^ '
+alias gitmeld='git difftool -d -t ${GRDIFF} -y'
+alias gitmeldc='git difftool --cached -d -t ${GRDIFF} -y'
+alias gitmeldh='git difftool -d -t ${GRDIFF} -y HEAD^ '
+alias gittrackrbranch=git_track_remote_branch
 alias gitlogdiff='git log -u -1 ' # supply sha as arg
 alias gitlocalcredentialcache='git config --local credential.helper "cache --timeout=14400"'
 alias gitmeldhash=run_git_meld_hash # supply sha as arg
