@@ -83,8 +83,9 @@ def do_gccgo_clean():
   lines.reverse()
   libgodirs = lines
   for lgd in libgodirs:
-    u.verbose(1, "visiting %s" % lgd)
-    do_clean(lgd)
+    if os.path.exists(lgd):
+      u.verbose(1, "visiting %s" % lgd)
+      do_clean(lgd)
   files = ["vet", "test2json", "buildid", "go", "gofmt", "cgo"]
   for f in files:
     p = "gotools/" + f
