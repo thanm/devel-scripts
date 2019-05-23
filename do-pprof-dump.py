@@ -32,8 +32,14 @@ flag_tag = None
 # Generate mem profile variants if set.
 flag_memvariants = False
 
+# Pass -lines to pprof
+flag_dashlines = False
+
 # Path to pprof
 flag_pprof_path = "pprof"
+
+# Clean temporary files when done
+flag_cleantemps = False
 
 
 def docmd(cmd):
@@ -147,12 +153,14 @@ def perform():
 
   for v in variants:
     ppopt = v[0]
+    if ppopt != "":
+      ppopt = "-" + ppopt
     infixes = v[1]
 
     # Emit temp file to use for pprof input
     try:
-      scriptf = tempfile.NamedTemporaryFile(mode="w", delete=True)
-      outf = tempfile.NamedTemporaryFile(mode="w", delete=True)
+      scriptf = tempfile.NamedTemporaryFile(mode="w", delete=flag_cleantemps)
+      outf = tempfile.NamedTemporaryFile(mode="w", delete=flag_cleantemps)
       ppo = open(scriptf.name, "w")
     except IOError:
       u.verbose(0, "open failed for %s" % outf.name)
@@ -164,7 +172,10 @@ def perform():
       fn = "%s/%s" % (flag_outdir, pn)
       tojoin = [fn]
       tojoin.extend(infixes)
-      tojoin.append("txt")
+      ext = "txt"
+      if pn == "svg":
+        ext = "svg"
+      tojoin.append(ext)
       fn = ".".join(tojoin)
       profiles[pn] = fn
 
@@ -179,8 +190,13 @@ def perform():
       u.docmd("cat %s" % scriptf.name)
 
     # Execute
-    pcmd = "%s %s %s %s" % (flag_pprof_path, ppopt, flag_binary,
-                            " ".join(flag_infiles))
+    lines = ""
+    if flag_dashlines:
+      lines = "-lines"
+
+    pcmd = "%s %s %s %s %s" % (flag_pprof_path, lines,
+                               ppopt, flag_binary,
+                                   " ".join(flag_infiles))
     docmdinout(pcmd, scriptf.name, outf.name)
 
     # Check to make sure the files turned up.
@@ -205,10 +221,12 @@ def usage(msgarg):
     -b B  binary path is B
     -p P  pprof path is P
     -m    generate heap profile variants
+    -L    pass --lines to pprof invocation
     -t T  tag output files with tag T
     -e    echo commands before executing
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
+    -S    save generated temporary files (debugging)
 
     Example usage:
 
@@ -222,10 +240,11 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_infiles, flag_outdir, flag_tag
-  global flag_binary, flag_pprof_path, flag_memvariants
+  global flag_binary, flag_pprof_path, flag_memvariants, flag_cleantemps
+  global flag_dashlines
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dmeDi:o:t:p:b:")
+    optlist, args = getopt.getopt(sys.argv[1:], "dmeDLSi:o:t:p:b:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -240,6 +259,10 @@ def parse_args():
       u.verbose(0, "+++ dry run mode")
       flag_dryrun = True
       flag_echo = True
+    elif opt == "-L":
+      flag_dashlines = True
+    elif opt == "-S":
+      flag_cleantemps = False
     elif opt == "-e":
       flag_echo = True
     elif opt == "-m":

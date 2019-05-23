@@ -348,7 +348,6 @@ function llvmroot() {
 function llvm-genfiles-flavor() {
   local S="$1"
   local PR="-print${S}"
-  local SKIPARGS="-path llvm/tools/clang/tools/extra/test -prune -o -path llvm/tools/clang/test -prune -o -path llvm/projects/compiler-rt/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
   local CFINDARGS="$SKIPARGS \
     -name *.inc $PR -o \
     -name *.cc $PR -o \
@@ -362,14 +361,24 @@ function llvm-genfiles-flavor() {
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
   local BUILDDIR=`ls -trad */build.ninja | tail -1 | xargs dirname`
+  local CLANGLOC="llvm/tools/clang"
+  local COMPILERRTLOC="llvm/projects/compiler-rt"
+  local TOFIND=llvm
+  local SKIPARGS=""
+  
+  # Determine monorepo vs old setup
+  if [ -d llvm -a -d clang -a -d compiler-rt ]; then
+    CLANGLOC="clang"
+    COMPILERRTLOC="compiler-rt"
+    TOFIND="llvm clang"
+  fi    
+  SKIPARGS="-path ${CLANGLOC}/tools/extra/test -prune -o -path ${CLANGLOC}/test -prune -o -path ${COMPILERRTLOC}/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
 
   if [ "$S" = "0" ]; then
     DOFILT=cat
   fi
 
-  if [ $? != 0 ]; then
-    echo "unable to local llvm dir and build dir -- no action taken"
-  else
+  if [ -d llvm -a -d $BUILDDIR ]; then
     echo "... running find in $LLVMROOT"
     rm -f cxxfiles${S}.txt mkfiles${S}.txt
     pushd $LLVMROOT 1> /dev/null
@@ -378,13 +387,20 @@ function llvm-genfiles-flavor() {
     find llvm $BUILDDIR $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
     popd 1> /dev/null
     echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
+  else
+    echo "unable to locate llvm dir and build dir -- no action taken"
   fi
 }
 
 function llvm-genfiles() {
+  local kid1=""
+  local kid2=""
   llvm-genfiles-flavor 0 &
+  kid1=$!
   llvm-genfiles-flavor &
-  wait
+  kid2=$!
+  wait $kid1
+  wait $kid2
 }
 
 function llvm-gentags() {
@@ -505,6 +521,8 @@ function gccgo-genfiles() {
 }
 
 function gccgo-mkid() {
+  local kid1=""
+  local kid2=""
 
   # Must be run from root
   if [ ! -d ./gofrontend ]; then
@@ -518,8 +536,11 @@ function gccgo-mkid() {
 
   echo "... generated cxxfiles"
   gccgo-genfiles 0 &
+  kid1=$!
   gccgo-genfiles &
-  wait
+  kid2=$!
+  wait $kid1
+  wait $kid2
 
   echo "... running mkid"
   mkid --files0-from cxxfiles0.txt
