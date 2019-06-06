@@ -1587,8 +1587,13 @@ function runalldotbash() {
 
   # Echo, then run
   echo "bash all.bash &> $FILE"
+  ST=`seconds.py`
   bash all.bash 1> $FILE 2>&1
+  RC=$?
+  EN=`seconds.py`
+  EL=`expr $EN - $ST`
 
+  echo "... complete in $EL seconds, return code: $RC"
   startemacs $FILE
 }
 
