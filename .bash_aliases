@@ -360,17 +360,28 @@ function llvm-genfiles-flavor() {
     -name *.cmake $PR"
   local LLVMROOT=`llvmroot`
   local DOFILT=filter-out-embedded-spaces.py
-  local BUILDDIR=`ls -trad */build.ninja | tail -1 | xargs dirname`
   local CLANGLOC="llvm/tools/clang"
   local COMPILERRTLOC="llvm/projects/compiler-rt"
   local TOFIND=llvm
+  local BUILDDIR=""
   local SKIPARGS=""
-  
+
+  pushd $LLVMROOT 1> /dev/null
+  BUILDDIR=`ls -trad */build.ninja | tail -1 | xargs dirname`
+
+  if [ -d llvm -a -d $BUILDDIR ]; then
+    echo "... llvm root is $LLVMROOT"
+  else	 
+    echo "unable to locate llvm dir / build dir in $LLVMROOT -- no action taken"
+    return
+  fi
+
   # Determine monorepo vs old setup
   if [ -d llvm -a -d clang -a -d compiler-rt ]; then
     CLANGLOC="clang"
     COMPILERRTLOC="compiler-rt"
     TOFIND="llvm clang"
+    echo "... detected monorepo"
   fi    
   SKIPARGS="-path ${CLANGLOC}/tools/extra/test -prune -o -path ${CLANGLOC}/test -prune -o -path ${COMPILERRTLOC}/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
 
@@ -378,18 +389,14 @@ function llvm-genfiles-flavor() {
     DOFILT=cat
   fi
 
-  if [ -d llvm -a -d $BUILDDIR ]; then
-    echo "... running find in $LLVMROOT"
-    rm -f cxxfiles${S}.txt mkfiles${S}.txt
-    pushd $LLVMROOT 1> /dev/null
-    echo "find llvm $BUILDDIR $CFINDARGS | $DOFILT"
-    find llvm $BUILDDIR $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
-    find llvm $BUILDDIR $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
-    popd 1> /dev/null
-    echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
-  else
-    echo "unable to locate llvm dir and build dir -- no action taken"
-  fi
+  echo "... running find in $LLVMROOT"
+  rm -f cxxfiles${S}.txt mkfiles${S}.txt
+  echo "find  ${TOFIND} $BUILDDIR $CFINDARGS | $DOFILT"
+  find ${TOFIND} $BUILDDIR $CFINDARGS | $DOFILT > $LLVMROOT/cxxfiles${S}.txt
+  find ${TOFIND} $BUILDDIR $MFINDARGS | $DOFILT > $LLVMROOT/mkfiles${S}.txt
+  popd 1> /dev/null
+
+  echo "... generated cxxfiles${S}.txt and mkfiles${S}.txt in $LLVMROOT"
 }
 
 function llvm-genfiles() {
@@ -1288,6 +1295,8 @@ function gccgotrunkconfig() {
         PREFBASE=$ARGOPT
       elif [ "z${ARG}" = "zdebug" ]; then
         echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      elif [ "z${ARG}" = "zcxx98" ]; then
+        echo '   CXXFLAGS="-std=c++98" CXXFLAGS_FOR_BUILD="-std=c++98" \' >> $TF
       else
         echo "*** error -- unknown option/argument $ARG"
         return
