@@ -1437,6 +1437,18 @@ function binutilstrunkconfig() {
   rm $TF
 }
 
+function setup_gofrontend_fakegoroot() {
+  local WORKROOT=$1
+  local HASH=`git log --oneline --no-abbrev-commit -1 | cut -f1 -d" "`
+  local FGR="/tmp/fakegoroot/$HASH"
+  mkdir -p $FGR
+  rm -rf $FGR/*
+  mkdir  $FGR/bin $FGR/pkg
+  ln -s $WORKROOT/libgo/go $FGR/src 
+  export GOROOT=$FGR
+  echo "... GOROOT set to $FGR"
+}
+
 function emacsbranched() {
   local WHICH="$*"
   local BN=""
@@ -1444,6 +1456,7 @@ function emacsbranched() {
   local FILES=""
   local REMOTE=""
   local WORKROOT=""
+  local RBRANCH=""
 
   # In git?
   git status -sb 1> /dev/null 2>&1
@@ -1452,16 +1465,21 @@ function emacsbranched() {
     return
   fi
 
+  WORKROOT=`git rev-parse --show-toplevel`
+  echo work root is $WORKROOT
+
   # Determine branch name
-  BN=`git status -sb | head -1 | egrep -v 'no branch' | cut -c3- | cut -f1 -d.`
+  BN=`git symbolic-ref --short HEAD`
   echo branch is $BN
 
-  WORKROOT=`git rev-parse --show-toplevel`
-
+  # Is this an offical branch (ex: master, or dev.link)? If so
+  # then it will appear in 'git branch -r' output.
+  RBRANCH=`git branch -r | fgrep "origin/$BN"`
+  
   # Determine files that have changed since the branch
   # forked off from master.
   if [ "$BN" != "" ]; then
-    if [ "$BN" != "master" ]; then
+    if [ "$RBRANCH" == "" ]; then
       FORKPOINT=`git merge-base $BN master`
       RFILES=`git diff --name-only $FORKPOINT $BN`
       for RF in $RFILES
@@ -1481,9 +1499,13 @@ function emacsbranched() {
     echo GOROOT=$WORKROOT
   fi
 
+  if [ "$REMOTE" = "https://go.googlesource.com/gofrontend" ]; then
+    setup_gofrontend_fakegoroot $WORKROOT
+  fi
+
   startemacs $FILES
 
-  if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
+  if [ "$REMOTE" = "https://go.googlesource.com/go" -o "$REMOTE" = "https://go.googlesource.com/gofrontend" ]; then
     unset GOROOT
   fi
 }
@@ -1702,6 +1724,7 @@ alias gld='git log -p'
 alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -d -t ${GRDIFF} -y'
+alias gitmeldr='git difftool -t ${GRDIFF} -y'
 alias gitmeldc='git difftool --cached -d -t ${GRDIFF} -y'
 alias gitmeldh='git difftool -d -t ${GRDIFF} -y HEAD^ '
 alias gittrackrbranch=git_track_remote_branch
