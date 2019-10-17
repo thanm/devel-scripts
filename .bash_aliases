@@ -562,6 +562,10 @@ function gcc-mkid() {
   rm -f cxxfiles0.txt
 }
 
+function gitbasebranch() {
+  git rev-parse --symbolic-full-name --abbrev-ref @{u} 
+}
+
 function mygitlogfile() {
   local WHATFILE=$1
   local DN
@@ -727,8 +731,16 @@ function run_git_show_local_branch_status() {
   git diff --name-status master  $WORKB
 }
 
-function set_git_upstream_tracking_branch_to_master() {
+function set_git_upstream_tracking_branch() {
+  local UPSTREAMBR="$1"
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local PARENTBR=`git rev-parse --symbolic-full-name --abbrev-ref @{u} 2>/dev/null`
+
+  if [ -z "$UPSTREAMBR" ]; then
+    echo "set_git_upstream_tracking_branch: invoked without arg, bailing"
+    return
+  fi
+  UPSTREAMBR="origin/$UPSTREAMBR"
 
   # Determine work branch
   if [ -z "$WORKB" ]; then
@@ -736,13 +748,34 @@ function set_git_upstream_tracking_branch_to_master() {
     git branch
     return
   fi
-  if [ "$WORKB" = "master" ]; then
-    echo "current branch is master, can't set tracking"
+
+  # echo "=-= UPSTREAMBR $UPSTREAMBR"
+  # echo "=-= WORKB $WORKB"
+  # echo "=-= PARENTBR $PARENTBR"
+
+  # Are we already set up?
+  if [ "$UPSTREAMBR" = "$PARENTBR" ]; then
+    echo "tracking branch already set to $PARENTBR, no work needed"
     return
   fi
 
-  echo git branch --set-upstream-to=origin/master
-  git branch --set-upstream-to=origin/master
+  # Don't allow setting of tracking branch for master, etc.
+  if [ "$WORKB" = "master" -o "$WORKB" = "$UPSTREAMBR" ]; then
+    echo "current branch is $WORKB, can't set tracking"
+    return
+  fi
+
+  if [ ! -z "$PARENTBR" ]; then
+    echo "previous tracking branch was: $PARENTBR"
+    echo "new tracking branch is: $UPSTREAMBR"
+  fi	 
+
+  echo git branch --set-upstream-to=$UPSTREAMBR
+  git branch --set-upstream-to=$UPSTREAMBR
+}
+
+function set_git_upstream_tracking_branch_to_master() {
+  set_git_upstream_tracking_branch master
 }
 
 function prependToPathIfNotAlreadyPresent () {
@@ -1449,8 +1482,9 @@ function setup_gofrontend_fakegoroot() {
   echo "... GOROOT set to $FGR"
 }
 
-function emacsbranched() {
-  local WHICH="$*"
+function emacswithgoroot() {
+  local DOBRANCH="$1"
+  local WHICH=""
   local BN=""
   local RFILES=""
   local FILES=""
@@ -1458,6 +1492,9 @@ function emacsbranched() {
   local WORKROOT=""
   local RBRANCH=""
 
+  shift
+  WHICH="$*"
+  
   # In git?
   git status -sb 1> /dev/null 2>&1
   if [ $? != 0 ]; then
@@ -1468,24 +1505,34 @@ function emacsbranched() {
   WORKROOT=`git rev-parse --show-toplevel`
   echo work root is $WORKROOT
 
-  # Determine branch name
-  BN=`git symbolic-ref --short HEAD`
-  echo branch is $BN
+  if [ "$DOBRANCH" = "BRANCH" ]; then
 
-  # Is this an offical branch (ex: master, or dev.link)? If so
-  # then it will appear in 'git branch -r' output.
-  RBRANCH=`git branch -r | fgrep "origin/$BN"`
+    # Determine branch name
+    BN=`git symbolic-ref --short HEAD`
+    echo branch is $BN
+
+    # Is this an offical branch (ex: master, or dev.link)? If so
+    # then it will appear in 'git branch -r' output.
+    RBRANCH=`git branch -r | fgrep "origin/$BN"`
   
-  # Determine files that have changed since the branch
-  # forked off from master.
-  if [ "$BN" != "" ]; then
-    if [ "$RBRANCH" == "" ]; then
-      FORKPOINT=`git merge-base $BN master`
-      RFILES=`git diff --name-only $FORKPOINT $BN`
-      for RF in $RFILES
-      do
-        FILES="$FILES ${WORKROOT}/${RF}"
-      done
+    # Determine files that have changed since the branch
+    # forked off from parent branch.
+    if [ "$BN" != "" ]; then
+      if [ "$RBRANCH" == "" ]; then
+        # Determine parent
+	PARENTBRANCH=`git rev-parse --symbolic-full-name --abbrev-ref @{u} 2>/dev/null`
+	if [ -z "$PARENTBRANCH" ]; then
+	  PARENTBRANCH=master
+        else
+	  PARENTBRANCH=`echo $PARENTBRANCH | cut -f2- -d/`
+        fi
+        FORKPOINT=`git merge-base $BN $PARENTBRANCH`
+        RFILES=`git diff --name-only $FORKPOINT $BN`
+        for RF in $RFILES
+        do
+          FILES="$FILES ${WORKROOT}/${RF}"
+        done
+      fi
     fi
   fi
   FILES="$FILES $WHICH"
@@ -1508,6 +1555,16 @@ function emacsbranched() {
   if [ "$REMOTE" = "https://go.googlesource.com/go" -o "$REMOTE" = "https://go.googlesource.com/gofrontend" ]; then
     unset GOROOT
   fi
+}
+
+function emacsbranched() {
+  local WHICH="$*"
+  emacswithgoroot BRANCH $WHICH
+}
+
+function emacsgoroot() {
+  local WHICH="$*"
+  emacswithgoroot NOBRANCH $WHICH
 }
 
 function emacshash() {
@@ -1721,7 +1778,6 @@ alias gs="git status"
 alias glo="git log --oneline"
 alias glf='git log --name-only'
 alias gld='git log -p'
-alias gitsetbtrack=set_git_upstream_tracking_branch_to_master
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -d -t ${GRDIFF} -y'
 alias gitmeldr='git difftool -t ${GRDIFF} -y'
