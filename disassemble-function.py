@@ -13,7 +13,7 @@ import script_utils as u
 
 
 # Echo command before executing
-flag_echo = True
+flag_echo = False
 
 # Dry run mode
 flag_dryrun = False
@@ -21,6 +21,9 @@ flag_dryrun = False
 # Functions and load modules
 flag_functions = {}
 flag_loadmodules = {}
+
+# Addresses
+flag_addresses = {}
 
 # Compile unit to look for in DWARF
 flag_dwarf_cu = None
@@ -79,7 +82,16 @@ def docmdout(cmd, outfile):
   u.docmdout(cmd, outfile)
 
 
-def grabaddrsize(line, func):
+def inhexrange(hsa, hsz, addr):
+  """Check if addr within hex range."""
+  staddr = int(hsa, 16)
+  enaddr = int(hsa, 16) + int(hsz, 16)
+  if addr >= staddr and addr <= enaddr:
+    return True
+  return False
+
+
+def grabaddrsize(line, func, addr):
   """Grab address and size from objdump line if sym matches."""
   #
   # ELF symtab examples:
@@ -101,11 +113,20 @@ def grabaddrsize(line, func):
     if m:
       name = m.group(3)
       u.verbose(2, "=-= name is %s" % name)
-      if name == func:
-        # Found
-        hexstaddr = m.group(1)
-        hexsize = m.group(2)
-        break
+      if func:
+        if name == func:
+          # Found
+          hexstaddr = m.group(1)
+          hexsize = m.group(2)
+          break
+      else:
+        hsa = m.group(1)
+        hsz = m.group(2)
+        if inhexrange(hsa, hsz, addr):
+          hexstaddr = hsa
+          hexsize = hsz
+          break
+
   if hexstaddr and hexsize == "00000000":
     u.warning("warning -- malformed hexsize for func %s" % func)
     hexsize = "4"
@@ -126,7 +147,14 @@ def has_dynamic_section(tgt):
   return False
 
 
-def grab_addr_from_symtab(func, tgt):
+def what(func, addr):
+  """Return the item for which we are looking."""
+  if func:
+    return "func '%s'" % func
+  return "address '%s'" % hex(addr)
+
+
+def grab_addr_from_symtab(func, addr, tgt):
   """Grab starting address and size from ELF symtab or dynsym."""
   flavs = ["-t"]
   if has_dynamic_section(tgt):
@@ -135,12 +163,12 @@ def grab_addr_from_symtab(func, tgt):
   enaddr = 0
   for flav in flavs:
     u.verbose(1, "looking for %s in output of "
-              "objdump %s %s" % (func, flav, tgt))
+              "objdump %s %s" % (what(func, addr), flav, tgt))
     lines = u.docmdlines("objdump %s %s" % (flav, tgt))
     hexstaddr = None
     hexsize = None
     for line in lines:
-      hexstaddr, hexsize = grabaddrsize(line, func)
+      hexstaddr, hexsize = grabaddrsize(line, func, addr)
       if hexstaddr:
         break
     if not hexstaddr:
@@ -156,12 +184,12 @@ def grab_addr_from_symtab(func, tgt):
   return staddr, enaddr
 
 
-def disas(func, tgt):
+def disas(func, addr, tgt):
   """Disassemble a specified function."""
-  staddr, enaddr = grab_addr_from_symtab(func, tgt)
+  staddr, enaddr = grab_addr_from_symtab(func, addr, tgt)
   if staddr == 0:
     u.verbose(0, "... could not find %s in "
-              "output of objdump, skipping" % func)
+              "output of objdump, skipping" % what(func, addr))
     return
   cmd = ("objdump --no-show-raw-insn --wide -dl "
          "--start-address=0x%x "
@@ -474,7 +502,9 @@ def perform():
   """Main routine for script."""
   for m in flag_loadmodules:
     for f in flag_functions:
-      disas(f, m)
+      disas(f, None, m)
+    for a in flag_addresses:
+      disas(None, a, m)
 
 
 def usage(msgarg):
@@ -490,6 +520,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
     -f F  dump function F
+    -a A  dump function containing text address A
     -m M  in load module M
     -W X  read and incorporate DWARF from compile unit X
           (if X is ".", read all compile units)
@@ -509,7 +540,7 @@ def parse_args():
   global flag_echo, flag_dryrun, flag_dwarf_cu, flag_dumpdwarf
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deDf:m:W:Z")
+    optlist, args = getopt.getopt(sys.argv[1:], "deDa:f:m:W:Z")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -528,6 +559,23 @@ def parse_args():
       flag_echo = True
     elif opt == "-f":
       flag_functions[arg] = 1
+    elif opt == "-a":
+      are = re.compile(r"^0x(\S+)$")
+      m = are.match(arg)
+      if not m:
+        u.warning("ignore -a arg '%s' -- not in form 0x<hexdigits>" % arg)
+      else:
+        hd = m.group(1)
+        good = True
+        v = "bad"
+        try:
+          v = int(hd, 16)
+        except ValueError:
+          good = False
+          u.warning("ignore -a arg '%s' -- not in form 0x<hexdigits>" % arg)
+        if good:
+          u.verbose(1, "looking for addr %s dec %d" % (arg, v))
+          flag_addresses[v] = 1
     elif opt == "-m":
       flag_loadmodules[arg] = 1
     elif opt == "-W":
@@ -535,9 +583,9 @@ def parse_args():
     elif opt == "-Z":
       flag_dumpdwarf = True
 
-  # Make sure at least one function, loadmodule
-  if not flag_functions:
-    usage("specify function name with -f")
+  # Make sure at least one function, loadmodule, or addr
+  if not flag_functions and not flag_addresses:
+    usage("specify function name with -f or address with -a")
   if not flag_loadmodules:
     usage("specify loadmodule with -m")
   if len(flag_loadmodules) > 1 and flag_dwarf_cu:

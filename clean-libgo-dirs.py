@@ -71,8 +71,8 @@ def do_gollvm_clean():
     p = "tools/gollvm/gotools/" + f
     if os.path.exists(p):
       u.verbose(1, "cleaning %s" % p)
-    if not flag_dryrun:
-      os.unlink(p)
+      if not flag_dryrun:
+        os.unlink(p)
 
 
 def do_gccgo_clean():

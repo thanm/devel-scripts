@@ -80,7 +80,7 @@ def docmd(cmd):
   verbose(2, "+ docmd executing: %s" % cmd)
   rc = subprocess.call(args)
   if rc != 0:
-    error("command failed: %s" % cmd)
+    error("command failed (rc=%d): %s" % (rc, cmd))
 
 
 # Similar to docmd, but return status after issuing failure message

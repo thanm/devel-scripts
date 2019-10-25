@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Script to generate pprof CPU profile reports from a set of data files.
+"""Script to generate pprof CPU or mem profile reports from a set of data files.
 
 """
 
@@ -40,6 +40,9 @@ flag_pprof_path = "pprof"
 
 # Clean temporary files when done
 flag_cleantemps = False
+
+# Capture pprof input files and commands into out dir.
+flag_capture = False
 
 
 def docmd(cmd):
@@ -151,9 +154,20 @@ def perform():
       infixes = [flag_tag]
     variants.append(["", infixes])
 
+  if flag_capture:
+    # Copy input files
+    docmd("cp %s %s" % (" ".join(flag_infiles), flag_outdir))
+    try:
+      with open("%s/runpprof.sh" % flag_outdir, "w") as wf:
+        wf.write("#/bin/sh\n")
+        wf.write("# run me from parent of outdir.\n")
+        wf.write("set -x\n")
+    except IOError:
+      u.verbose(0, "open for write failed for 'runprof.sh'")
+
   for v in variants:
     ppopt = v[0]
-    if ppopt != "":
+    if ppopt:
       ppopt = "-" + ppopt
     infixes = v[1]
 
@@ -196,8 +210,22 @@ def perform():
 
     pcmd = "%s %s %s %s %s" % (flag_pprof_path, lines,
                                ppopt, flag_binary,
-                                   " ".join(flag_infiles))
+                               " ".join(flag_infiles))
     docmdinout(pcmd, scriptf.name, outf.name)
+
+    if flag_capture:
+      if ppopt:
+        cfile = "pprofcmds.%s.txt" % ppopt
+      else:
+        cfile = "pprofcmds.txt"
+      docmd("cp %s %s/%s" % (scriptf.name, flag_outdir, cfile))
+      wf = None
+      try:
+        with open("%s/runpprof.sh" % flag_outdir, "a") as wf:
+          wf.write(pcmd)
+          wf.write(" < %s/%s\n" % (flag_outdir, cfile))
+      except IOError:
+        u.verbose(0, "open for append failed for 'runprof.sh'")
 
     # Check to make sure the files turned up.
     if not flag_dryrun:
@@ -227,6 +255,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
     -S    save generated temporary files (debugging)
+    -C    capture input files and pprof cmds into outdir
 
     Example usage:
 
@@ -241,10 +270,10 @@ def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_infiles, flag_outdir, flag_tag
   global flag_binary, flag_pprof_path, flag_memvariants, flag_cleantemps
-  global flag_dashlines
+  global flag_dashlines, flag_capture
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dmeDLSi:o:t:p:b:")
+    optlist, args = getopt.getopt(sys.argv[1:], "dmeCDLSi:o:t:p:b:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -265,6 +294,8 @@ def parse_args():
       flag_cleantemps = False
     elif opt == "-e":
       flag_echo = True
+    elif opt == "-C":
+      flag_capture = True
     elif opt == "-m":
       flag_memvariants = True
     elif opt == "-i":

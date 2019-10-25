@@ -11,14 +11,24 @@ import sys
 
 import script_utils as u
 
+flag_reverse = False
+
 
 def convert(s):
-  """Convert hex to binary."""
-  try:
-    v = int(s, 16)
-  except ValueError:
-    return s
-  return bin(v)[2:].zfill(8)
+  """Convert hex to binary or vice versa."""
+  if flag_reverse:
+    try:
+      v = int(s, 10)
+    except ValueError:
+      return s
+    return "0x" + hex(v)[2:].zfill(8)
+  else:
+    try:
+      v = int(s, 16)
+    except ValueError:
+      return s
+    return bin(v)[2:].zfill(8)
+
 
 
 def usage(msgarg):
@@ -40,7 +50,7 @@ def parse_args():
   global flag_reverse
 
   try:
-    optlist, _ = getopt.getopt(sys.argv[1:], "d")
+    optlist, _ = getopt.getopt(sys.argv[1:], "dr")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -48,6 +58,8 @@ def parse_args():
   for opt, _ in optlist:
     if opt == "-d":
       u.increment_verbosity()
+    elif opt == "-r":
+      flag_reverse = True
 
 
 # Setup

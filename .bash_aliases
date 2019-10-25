@@ -1623,6 +1623,7 @@ function emacsmod() {
 }
 
 function runalldotbash() {
+  local SCRIPT="$1"
   local GR=""
   local HERE=`pwd`
   local FILE=""
@@ -1654,20 +1655,27 @@ function runalldotbash() {
     return
   fi
 
+  # Select all.bash or race.bash
+  if [ "x$SCRIPT" = "xrace" ]; then
+    SCRIPT=race.bash
+  else
+    SCRIPT=all.bash
+  fi
+    
   # Check script
-  if [ ! -x ./all.bash ]; then
-    echo "** no executable ./all.bash"
+  if [ ! -x ./$SCRIPT ]; then
+    echo "** no executable ./$SCRIPT"
     return
   fi
 
   # Decide where to put the results
   FILE=`echo $GR | tr / _`
-  FILE=${SSDTMP}/tmp/all.bash.${FILE}.${WORKB}.${HASH}.txt
+  FILE=${SSDTMP}/tmp/${SCRIPT}.${FILE}.${WORKB}.${HASH}.txt
 
   # Echo, then run
-  echo "bash all.bash &> $FILE"
+  echo "bash $SCRIPT &> $FILE"
   ST=`seconds.py`
-  bash all.bash 1> $FILE 2>&1
+  bash $SCRIPT 1> $FILE 2>&1
   RC=$?
   EN=`seconds.py`
   EL=`expr $EN - $ST`

@@ -49,6 +49,7 @@ def perform():
   lines = u.docmdlines(cmd)
   cre = re.compile(r"^\s*Compilation Unit \@ offset 0x(\S+)\:\s*$")
   namere = re.compile(r"^\s+\<\S+\>\s+DW_AT_name\s+\:\s+(\S+)\s*$")
+  namere2 = re.compile(r"^\s+\<\S+\>\s+DW_AT_name\s+\:\s+\(indirect.+\)\:\s+(\S+)\s*$")
   stlre = re.compile(r"^\s+\<\S+\>\s+DW_AT_stmt_list\s+\:\s+(\S+)\s*$")
   units = 0
   lo = -1
@@ -75,8 +76,13 @@ def perform():
       units += 1
     if flag_name_to_find:
       m2 = namere.match(line)
+      m2x = namere2.match(line)
       if m2:
         if m2.group(1) == flag_name_to_find:
+          selectoff = binoff
+          found = True
+      elif m2x:
+        if m2x.group(1) == flag_name_to_find:
           selectoff = binoff
           found = True
     if flag_dumpline:

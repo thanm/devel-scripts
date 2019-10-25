@@ -58,7 +58,14 @@ def doscmd(cmd, nf=None):
 def visit_branch(b):
   """Work on specified branch."""
   docmd("git checkout %s" % b)
-  docmd("git branch --set-upstream-to=origin/master")
+
+  # Query upstream branch for this branch. If not set, then don't
+  # try to work on it.
+  lines = u.docmdlines("git rev-parse --symbolic-full-name --abbrev-ref @{u}", True)
+  if not lines:
+    u.warning("no upstream branch set for branch %s, skipping" % b)
+    return
+
   docmd("git rebase")
   docmd("git checkout master")
   doscmd("git branch -d %s" % b, True)
