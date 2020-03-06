@@ -10,7 +10,6 @@ patch.
 import getopt
 import os
 import re
-import shutil
 import stat
 import sys
 
@@ -41,6 +40,9 @@ flag_newsha = None
 # For -B option
 flag_branch_to_diff = None
 
+# For -T option
+flag_base_branch = None
+
 
 def docmd(cmd):
   """Execute a command."""
@@ -67,7 +69,7 @@ def collect_modfiles():
              "%s..%s" % (flag_oldsha, flag_newsha))
   elif flag_branch_to_diff:
     # Check if any diffs
-    mb = "master %s" % flag_branch_to_diff
+    mb = "%s %s" % (flag_base_branch, flag_branch_to_diff)
     rc = u.docmdnf("git diff --quiet %s" % mb)
     if rc == 0:
       u.error("unable to proceed -- no diffs "
@@ -209,7 +211,7 @@ def archive():
   if flag_oldsha:
     dcmd = "git diff %s..%s" % (flag_oldsha, flag_newsha)
   elif flag_branch_to_diff:
-    dcmd = "git diff %s master" % flag_branch_to_diff
+    dcmd = "git diff %s %s" % (flag_base_branch, flag_branch_to_diff)
   else:
     dcmd = "git diff --cached"
   docmdout(dcmd, "%s/git.diff.txt" % flag_destdir)
@@ -236,7 +238,9 @@ def usage(msgarg=None):
     -S X:Y   derive list of files with changes between
              commits with shas X + Y (where X is the older sha)
     -B X     derive list of files from comparing branch X
-             to branch 'master'
+             to tracking branch of X
+    -T Y     for -B, set tracking branch to Y (default is
+             to auto-detect)
 
     """ % me
   sys.exit(1)
@@ -245,10 +249,10 @@ def usage(msgarg=None):
 def parse_args():
   """Command line argument parsing."""
   global flag_dryrun, flag_destdir
-  global flag_oldsha, flag_newsha, flag_branch_to_diff
+  global flag_oldsha, flag_newsha, flag_branch_to_diff, flag_base_branch
 
   try:
-    optlist, _ = getopt.getopt(sys.argv[1:], "hdo:DS:B:")
+    optlist, _ = getopt.getopt(sys.argv[1:], "hdo:DS:B:T:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -262,6 +266,8 @@ def parse_args():
       flag_dryrun = True
     elif opt == "-B":
       flag_branch_to_diff = arg
+    elif opt == "-T":
+      flag_base_branch = arg
     elif opt == "-S":
       r1 = re.compile(r"^(\S+):(\S+)$")
       m1 = r1.match(arg)
@@ -291,7 +297,17 @@ def parse_args():
   if flag_branch_to_diff and flag_oldsha:
     usage("supply either -B or -S but not both")
   u.verbose(1, "dst dir: %s" % flag_destdir)
-
+  # Set base branch if not already set.
+  if flag_branch_to_diff and not flag_base_branch:
+    cmd = "git rev-parse --symbolic-full-name --abbrev-ref @{u}"
+    lines = u.docmdlines(cmd)
+    if not lines:
+      u.error("can't interpret output of %s, aborting" % cmd)
+    comps = lines[0].split("/")
+    if len(comps) != 2 or comps[0] != "origin":
+      u.error("can't splt output '%s' of %s, aborting" % (cmd, lines[0]))
+    flag_base_branch = comps[1]
+    u.verbose(1, "base branch set to %s" % flag_base_branch)
 
 parse_args()
 u.setdeflanglocale()

@@ -335,7 +335,11 @@ function llvmroot() {
   local HERE=`pwd`
   local CUR=$HERE
   while [ $CUR != "/" ]; do
-    if [ -d $CUR/llvm -a -d $CUR/llvm/tools ]; then
+    if [ -d $CUR/llvm -a -d $CUR/llvm/tools -a -d $CUR/llvm/.git ]; then
+      echo $CUR
+      return 0
+    fi
+    if [ -d $CUR/llvm-project -a -d $CUR/llvm-project/llvm -a -d $CUR/llvm-project/llvm/tools ]; then
       echo $CUR
       return 0
     fi
@@ -369,7 +373,7 @@ function llvm-genfiles-flavor() {
   pushd $LLVMROOT 1> /dev/null
   BUILDDIR=`ls -trad */build.ninja | tail -1 | xargs dirname`
 
-  if [ -d llvm -a -d $BUILDDIR ]; then
+  if [ \( -d llvm -o -d llvm-project \) -a -d $BUILDDIR ]; then
     echo "... llvm root is $LLVMROOT"
   else	 
     echo "unable to locate llvm dir / build dir in $LLVMROOT -- no action taken"
@@ -377,10 +381,10 @@ function llvm-genfiles-flavor() {
   fi
 
   # Determine monorepo vs old setup
-  if [ -d llvm -a -d clang -a -d compiler-rt ]; then
-    CLANGLOC="clang"
-    COMPILERRTLOC="compiler-rt"
-    TOFIND="llvm clang"
+  if [ -d llvm-project/llvm -a -d llvm-project/clang ]; then
+    CLANGLOC="llvm-project/clang"
+    COMPILERRTLOC="llvm-project/compiler-rt"
+    TOFIND="llvm-project/llvm llvm-project/clang"
     echo "... detected monorepo"
   fi    
   SKIPARGS="-path ${CLANGLOC}/tools/extra/test -prune -o -path ${CLANGLOC}/test -prune -o -path ${COMPILERRTLOC}/test -prune -o -name .svn -prune -o -name .git -prune -o -name mangle-ms-md5.cpp -o -name FormatTest.cpp -prune -o "
@@ -684,6 +688,7 @@ function run_git_meld_hash() {
   git difftool -y -d -t ${GRDIFF} $HASH1 $HASH2 $extr
 }
 
+
 function run_git_meld_branch() {
   local FILES=$*
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
@@ -695,6 +700,11 @@ function run_git_meld_branch() {
     git branch
     return
   fi
+  if [ "$WORKB" = "(no" ]; then
+    echo "are you rebasing? unable to proceed; output of git branch is:"
+    git branch
+    return
+  fi	
   if [ "$WORKB" = "master" ]; then
     echo "current branch is master, please check out work branch"
     return
@@ -722,6 +732,11 @@ function run_git_show_local_branch_status() {
     git branch
     return
   fi
+  if [ "$WORKB" = "(no" ]; then
+    echo "are you rebasing? unable to proceed; output of git branch is:"
+    git branch
+    return
+  fi	
   if [ "$WORKB" = "master" ]; then
     echo "current branch is master, please check out work branch"
     return
@@ -736,6 +751,11 @@ function set_git_upstream_tracking_branch() {
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
   local PARENTBR=`git rev-parse --symbolic-full-name --abbrev-ref @{u} 2>/dev/null`
 
+  if [ "$WORKB" = "(no" ]; then
+    echo "are you rebasing? unable to proceed; output of git branch is:"
+    git branch
+    return
+  fi	
   if [ -z "$UPSTREAMBR" ]; then
     echo "set_git_upstream_tracking_branch: invoked without arg, bailing"
     return
@@ -1328,6 +1348,8 @@ function gccgotrunkconfig() {
         PREFBASE=$ARGOPT
       elif [ "z${ARG}" = "zdebug" ]; then
         echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      elif [ "z${ARG}" = "zdwarf5" ]; then
+        echo ' CFLAGS="-g -gdwarf-5" CXXFLAGS="-g -gdwarf-5" CFLAGS_FOR_BUILD="-g -gdwarf-5" CXXFLAGS_FOR_BUILD="-g -gdwarf-5" \' >> $TF
       elif [ "z${ARG}" = "zcxx98" ]; then
         echo '   CXXFLAGS="-std=c++98" CXXFLAGS_FOR_BUILD="-std=c++98" \' >> $TF
       else
@@ -1629,6 +1651,11 @@ function runalldotbash() {
   local FILE=""
   local HASH=""
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+
+  if [ "$WORKB" = "(no" ]; then
+    WORKB=`git branch | fgrep '*' | cut -f5 -d" " | tr -d ')'`
+    WORKB=${WORKB}_in_rebase
+  fi	
 
   GR=`go env GOROOT`
   if [ $? != 0 ]; then

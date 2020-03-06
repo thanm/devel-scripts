@@ -37,6 +37,9 @@ flag_report_nonvol = True
 # Show only repo volumes
 flag_only_repos = False
 
+# Look only at current dir
+flag_dot = False
+
 # Holds size info from 'du'
 volsizes = {}
 
@@ -163,9 +166,35 @@ def examine_ssdroot(ssdroot):
                     "to %s based on child %s" % (pv, pvm, cvm, cv))
           vol_mtime[pv] = cvm
 
+  vols = sorted(vol_uid.keys())
+  if flag_dot:
+    # For flag_dot, we're only interested in snapshots and volumes
+    # related to the current directory. Start by locating the snap
+    # or volume that we're in at the moment.
+    vols = []
+    here = os.getcwd()
+    path_components = here.split("/")
+    curvol = "%s" % path_components[2]
+    u.verbose(2, "flag_dot: evaluating curvol=%s" % curvol)
+    if curvol in vol_uid:
+      uid = vol_uid[curvol]
+      u.verbose(2, "flag_dot: curvol=%s uid=%s" % (curvol, uid))
+      # Find parent volume if applicable.
+      if curvol in vol_puid:
+        uid = vol_puid[curvol]
+        curvol = uid_vol[uid]
+        u.verbose(2, "flag_dot: parent curvol=%s uid=%s" % (curvol, uid))
+      # Now add vol itself and all children to tups list.
+      vols.append(curvol)
+      if curvol in voldict:
+        sv = voldict[curvol]
+        for v in sv:
+          vols.append(v)
+      u.verbose(2, "flag_dot: final vols: %s" % vols)
+
   # Sort order
   tups = []
-  for v in vol_uid:
+  for v in vols:
     mtime = 0
     if flag_sort_modtime:
       mtime = vol_mtime[v]
@@ -270,7 +299,9 @@ def usage(msgarg):
 
     Displays BTRFS subvolumes/snapshots for any BTRFS filesystems
     currently mounted.  If optional "dir" arg is supplied, display
-    info only for filesystem containing that dir.
+    info only for filesystem containing that dir. If the dir is
+    ".", then show only snapshots and volumes related to the current
+    dir.
 
     """ % os.path.basename(sys.argv[0])
   sys.exit(1)
@@ -279,7 +310,7 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global ssdroot_list, flag_report_nonvol, flag_sort_modtime
-  global flag_only_repos, flag_terse_output, flag_showsize
+  global flag_only_repos, flag_terse_output, flag_showsize, flag_dot
 
   try:
     optlist, args = getopt.getopt(sys.argv[1:], "dnmrstz")
@@ -304,6 +335,8 @@ def parse_args():
   if not args:
     ssdroot_list = find_ssdroots()
   else:
+    if len(args) == 1 and args[0] == ".":
+      flag_dot = True
     ssdroot_list = find_ssdroot_from_args(args)
   if flag_showsize and flag_terse_output:
     usage("-m and -z options are incompatible")

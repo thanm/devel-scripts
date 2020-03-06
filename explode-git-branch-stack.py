@@ -17,14 +17,14 @@ This script will produce the following dumps:
   /tmp/item=3.branch=mybranch.commit=2b3ddf5180.txt
   /tmp/item=4.branch=mybranch.index.txt
 
+Also of use is the '-S' option which will explode the contents
+of the stash list, instead of a branch.
 """
 
 import getopt
 import os
 import re
-import shutil
 import sys
-import tempfile
 
 import script_utils as u
 
@@ -39,6 +39,9 @@ flag_tag = None
 
 # Files emitted
 files_emitted = []
+
+# Look at git stash, not branch
+flag_dostash = False
 
 
 def docmd(cmd):
@@ -77,12 +80,13 @@ def docmdinout(cmd, infile, outfile):
   u.docmdinout(cmd, infile, outfile)
 
 
-def process_commit(idx, branchname, githash, comment):
+def process_commit(idx, flav, branchname, githash, comment):
   """Process a commit by hash."""
+  global files_emitted
   tag = ""
   if flag_tag:
     tag = ".tag=%s" % flag_tag
-  fn = "/tmp/item%d.branch%s%s.commit%s.txt" % (idx, branchname, tag, githash)
+  fn = "/tmp/item%d.%s%s%s.commit%s.txt" % (idx, flav, branchname, tag, githash)
   if flag_dryrun:
     u.verbose(0, "<dryrun: emit diff for "
               "%s^ %s to %s>" % (githash, githash, fn))
@@ -92,15 +96,19 @@ def process_commit(idx, branchname, githash, comment):
     outf = open(fn, "w")
   except IOError as e:
     u.error("unable to open %s: %s" % (fn, e.strerror))
-  outf.write("// comment: %s\n" % comment)
-  outf.write("//\n")
-  lines = u.docmdlines("git log --name-only -1 %s" % githash)
-  if not lines:
-    u.error("empty output from 'git log --name-only -1 %s'" % githash)
-  for line in lines:
-    outf.write(line)
-    outf.write("\n")
-  outf.write("--------------------------------------------------------------\n")
+  if comment != "":
+    outf.write("// comment: %s\n" % comment)
+    outf.write("//\n")
+  if flav != "stash":
+    lines = u.docmdlines("git log --name-only -1 %s" % githash)
+    if not lines:
+      u.error("empty output from 'git log --name-only -1 %s'" % githash)
+    for line in lines:
+      outf.write(line)
+      outf.write("\n")
+    outf.write("--------------------------------------------------------------\n")
+  else:
+    outf.write("Stash entry: %s\n" % githash)
   lines = u.docmdlines("git diff %s^ %s" % (githash, githash))
   if not lines:
     u.error("empty output from 'git diff %s^ %s'" % (githash, githash))
@@ -111,8 +119,50 @@ def process_commit(idx, branchname, githash, comment):
   u.verbose(1, "wrote %d diff lines to %s" % (len(lines), fn))
 
 
+def emit_index_file(flav):
+  """Emit index to emitted files."""
+  global files_emitted
+  n = len(files_emitted) + 1
+  fn = "/tmp/item%d.%s.index.txt" % (n, flav)
+  try:
+    outf = open(fn, "w")
+  except IOError as e:
+    u.error("unable to open %s: %s" % (fn, e.strerror))
+  outf.write("Files emitted:\n\n%s\n" % " ".join(files_emitted))
+  if flav != "stash":
+    outf.write("\n\nLog:\n\n")
+    lines = u.docmdlines("git log --name-only -%d HEAD" % len(files_emitted))
+    for line in lines:
+      outf.write(line)
+      outf.write("\n")
+  outf.close()
+  u.verbose(0, "... index file emitted to %s\n" % fn)
+
+
+def perform_on_stash():
+  """Main driver routine for -S case."""
+  lines = u.docmdlines("git stash list")
+  if not lines:
+    u.warning("no stash entries found, leaving now.")
+    return
+  streg = re.compile(r"^(stash@{\S+})\:\s.+$")
+  idx = 0
+  for line in lines:
+    idx += 1
+    m = streg.match(line)
+    if not m:
+      u.error("can't pattern match output of git stash list: %s" % line)
+    stname = m.group(1).strip()
+    u.verbose(1, "examining stash entry: %s" % stname)
+    process_commit(idx, "stash", "stash", stname, "")
+  emit_index_file("stash")
+
+
 def perform():
   """Main driver routine."""
+  if flag_dostash:
+    perform_on_stash()
+    return
 
   lines = u.docmdlines("git status -sb")
   if not lines:
@@ -131,8 +181,6 @@ def perform():
     u.error("empty output from 'git log --oneline'")
 
   # Process commits in reverse order
-  firsthash = None
-  lasthash = None
   creg = re.compile(r"^(\S+) (\S.+)$")
   lines.reverse()
   idx = 0
@@ -142,30 +190,11 @@ def perform():
     if not m:
       u.error("can't pattern match git log output: %s" % cl)
     githash = m.group(1)
-    lasthash = githash
-    if not firsthash:
-      firsthash = githash
     comment = m.group(2)
     u.verbose(1, "processing hash %s comment %s" % (githash, comment))
-    process_commit(idx, branchname, githash, comment)
+    process_commit(idx, "branch", branchname, githash, comment)
 
-  # Emit index file
-  n = len(files_emitted) + 1
-  fn = "/tmp/item%d.branch=%s.index.txt" % (n, branchname)
-  try:
-    outf = open(fn, "w")
-  except IOError as e:
-    u.error("unable to open %s: %s" % (fn, e.strerror))
-  outf.write("Files emitted:\n\n")
-  outf.write(" ".join(files_emitted))
-  outf.write("\n\nBranch log:\n\n")
-  u.verbose(1, "index diff cmd hashes: %s %s" % (firsthash, lasthash))
-  lines = u.docmdlines("git log --name-only -%d HEAD" % len(files_emitted))
-  for line in lines:
-    outf.write(line)
-    outf.write("\n")
-  outf.close()
-  u.verbose(0, "... index file emitted to %s\n" % fn)
+  emit_index_file("branch=%s" % branchname)
 
 
 def usage(msgarg):
@@ -181,26 +210,33 @@ def usage(msgarg):
     -e    echo commands before executing
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
+    -S    examine contents of stash, not a branch
 
     This program walks the stack of commits for a given git
     development branch and dumps out diffs for each commit
     into /tmp.
 
-    Example usage:
+    Example 1: examine current branch
 
     %s
 
-    """ % (me, me))
+    Example 2: examine stash
+
+    %s -S
+
+
+
+    """ % (me, me, me))
 
   sys.exit(1)
 
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_echo, flag_dryrun, flag_tag
+  global flag_echo, flag_dryrun, flag_tag, flag_dostash
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deDt:")
+    optlist, args = getopt.getopt(sys.argv[1:], "deDSt:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -211,6 +247,8 @@ def parse_args():
   for opt, arg in optlist:
     if opt == "-d":
       u.increment_verbosity()
+    elif opt == "-S":
+      flag_dostash = True
     elif opt == "-D":
       u.verbose(0, "+++ dry run mode")
       flag_dryrun = True

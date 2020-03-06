@@ -25,7 +25,6 @@ You can also request that all offsets and PC info be stripped, although that can
 can obscure some important differences. Abstract origin references are tracked
 and annotated (unless disabled).
 
-
 """
 
 import getopt
@@ -185,7 +184,6 @@ def perform_filt(inf, outf):
         tag = m2.group(1)
         u.verbose(2, "=-= tag = %s" % tag)
         if tag == "compile_unit":
-          filtered = True
           iscompunit = True
           if len(flag_compunits) != 0:
             checkname = True
@@ -198,6 +196,8 @@ def perform_filt(inf, outf):
           outf.write("%s<%s>:%s\n" % (sp, depth, rem))
         else:
           outf.write("%s<%s><%0x>:%s\n" % (sp, depth, off, rem))
+      if iscompunit:
+        filtered = True
       continue
 
     addend = ""
@@ -219,11 +219,11 @@ def perform_filt(inf, outf):
       if attr == "DW_AT_name":
         name = rem.strip()
         u.verbose(3, "absoff %s diename[%x] is %s" % (absoff, off, name))
+        filtered = False
         if checkname:
           checkname = False
           if name in flag_compunits:
             u.verbose(1, "=-= output enabled since %s is in compunits" % name)
-            filtered = False
           else:
             u.verbose(1, "=-= output disabled since %s not in compunits" % name)
             filtered = True
