@@ -746,6 +746,34 @@ function run_git_show_local_branch_status() {
   git diff --name-status master  $WORKB
 }
 
+function newbranch() {
+  local NEWBRNAME="$1"
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local PARENTBR=`git rev-parse --symbolic-full-name --abbrev-ref @{u} 2>/dev/null`
+
+  if [ "$NEWBRNAME" = "" ]; then
+    echo "supply an argument to newbranch with new branch name"
+    return
+  fi
+  if [ "$PARENTBR" = "" ]; then
+    echo "error: current branch ($WORKB) does not see to have upstream tracking, can't proceed."
+    return
+  fi
+
+  echo git checkout -b $NEWBRNAME 
+  git checkout -b $NEWBRNAME
+  if [ $? != 0 ]; then
+    echo "branch creation failed, early exit"
+    return
+  fi
+  echo git branch --set-upstream-to=$PARENTBR
+  git branch --set-upstream-to=$PARENTBR
+  if [ $? != 0 ]; then
+    echo "git branch --set-upstream failed"
+    return
+  fi
+}
+
 function set_git_upstream_tracking_branch() {
   local UPSTREAMBR="$1"
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
@@ -1275,6 +1303,17 @@ function cdgopath() {
   local GP=`go env GOPATH`
   echo pushd $GP
   pushd $GP
+}
+
+function cdcompilebench() {
+  local GP=`go env GOPATH`
+  local CB=${GP}/src/golang.org/x/tools/cmd/compilebench
+  if [ -d $CB ]; then
+    echo pushd $CB
+    pushd $CB
+  else
+    echo "can't locate $CB"
+  fi	 
 }
 
 function gccgobinutilsconfig() {
@@ -1808,13 +1847,15 @@ alias py34=python3.4
 alias android_python_lint=pep8
 
 # Git
+alias gwts="git worktree list"
 alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias grbw="echo git codereview rebase-work; git codereview rebase-work"
 alias grbcont="echo git rebase --continue; git rebase --continue"
-alias gb="git branch"
-alias gbl="git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
+alias gb="git worktree list; git branch | columns"
+alias gbl="git worktree list; git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
 alias gca="echo git commit --amend ; git commit --amend"
+alias gcaX="echo git commit --amend --reset-author; git commit --amend --reset-author"
 alias gcar="echo git commit --amend --reuse-message=HEAD ; git commit --amend --reuse-message=HEAD"
 alias gs="git status"
 alias glo="git log --oneline"
