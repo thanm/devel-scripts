@@ -92,26 +92,13 @@
   (global-set-key [f10] 'browse-url-of-buffer)
   (global-set-key [f11] 'revert-buffer)
   (global-set-key [f12] 'eatwhite))
+  (global-set-key [M-=] 'gid)
 (apply-my-key-bindings)
 ;;
 ;; Change esc-tab to indent relative, not tags completion (which
 ;; I hardly ever use).
 ;;
 (define-key esc-map "\t" 'indent-relative)
-;;
-;; Key setup. Assumes version 19 or later.
-;;
-(global-set-key [f1] 'text-scale-increase)
-(global-set-key [f2] 'text-scale-decrease)
-(global-set-key [f3] 'apply-my-key-bindings)
-(global-set-key [f5] 'goto-line)
-(global-set-key [f6] 'find-file-other-frame)
-(global-set-key [f7] 'make-frame)
-(global-set-key [f8] 'delete-frame)
-(global-set-key [f9] 'what-line)
-(global-set-key [f11] 'revert-buffer)
-(global-set-key [f12] 'eatwhite)
-(global-set-key [M-=] 'gid)
 ;;
 ;; Add an exit hook that asks for confirmation if there is
 ;; more than one file buffer.

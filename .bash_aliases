@@ -442,10 +442,10 @@ function llvm-mkid() {
     mkid --files0-from cxxfiles0.txt
     #    rm -f cxxfiles0.txt mkfiles0.txt
     echo "... ID file created in $LLVMROOT"
-    find llvm -name "*.def" > deffiles.txt
-    find llvm -name "*.td" > tdfiles.txt
-    find llvm -name "*.ll" > llfiles.txt
-    find llvm -name "*.cmake" -print -o -name "CMakeLists.txt" -print > cmakefiles.txt
+    find llvm-project -name "*.def" > deffiles.txt
+    find llvm-project -name "*.td" > tdfiles.txt
+    find llvm-project -name "*.ll" > llfiles.txt
+    find llvm-project -name "*.cmake" -print -o -name "CMakeLists.txt" -print > cmakefiles.txt
     popd 1> /dev/null
   fi
 }
@@ -1690,6 +1690,9 @@ function runalldotbash() {
   local FILE=""
   local HASH=""
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local MYGDB=`which gdb`
+
+  echo "note: gdb is $MYGDB"
 
   if [ "$WORKB" = "(no" ]; then
     WORKB=`git branch | fgrep '*' | cut -f5 -d" " | tr -d ')'`
