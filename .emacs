@@ -182,6 +182,7 @@
                           (setq tab-width 4
                                 standard-indent 2
                                 indent-tabs-mode 1)))
+
 ;;
 ;; Emacs server/client setup. For linux, set server name based on
 ;; DISPAY value, so that we can have separate emacs servers for the
@@ -189,12 +190,12 @@
 ;; slightly different socket name setup.
 ;;
 (cond
- ((string-equal system-type "windows-nt") 
+ ((string-equal system-type "windows-nt")
   (progn
     (message "Does this even work on windows?")))
- ((string-equal system-type "darwin") 
+ ((string-equal system-type "darwin")
   (progn
-    (setenv "PATH" (concat (getenv "PATH") ":/Users/thanm/bin:/usr/local/bin"))    
+    (setenv "PATH" (concat (getenv "PATH") ":/Users/thanm/bin:/usr/local/bin"))
     (setq server-socket-dir (format "/tmp/emacs%d" (user-uid)))))
  ((string-equal system-type "gnu/linux")
   (progn
@@ -246,3 +247,32 @@
   "Make fill break lines at sentence boundaries in this buffer."
   (interactive)
   (setq-local fill-paragraph-function #'fill-split-sentences))
+
+;;
+;; See https://github.com/jwiegley/use-package
+;; and https://github.com/golang/tools/blob/master/gopls/doc/emacs.md
+;;
+(use-package lsp-mode
+  :ensure t
+  :commands (lsp lsp-deferred)
+  :hook (go-mode . lsp-deferred))
+
+;; Set up before-save hooks to format buffer and add/delete imports.
+;; Make sure you don't have other gofmt/goimports hooks enabled.
+(defun lsp-go-install-save-hooks ()
+  (add-hook 'before-save-hook #'lsp-format-buffer t t)
+  (add-hook 'before-save-hook #'lsp-organize-imports t t))
+(add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
+
+;; Optional - provides fancier overlays.
+(use-package lsp-ui
+  :ensure t
+  :commands lsp-ui-mode)
+
+;; Company mode is a standard completion package that works well with lsp-mode.
+(use-package company
+  :ensure t
+  :config
+  ;; Optionally enable completion-as-you-type behavior.
+  (setq company-idle-delay 0)
+  (setq company-minimum-prefix-length 1))
