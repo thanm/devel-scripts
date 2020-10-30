@@ -10,11 +10,15 @@ function startemacsclient() {
 
 function startemacs() {
   local em="$EDITOR"
-  if [ -z "$EDITOR" ]; then
-    em=emacs
-  fi
-  ${em} $* &
-  disown $!
+  if [ "x${OSFLAVOR}" = "xDarwin" ]; then
+    startemacsclient $*
+  else
+    if [ -z "$EDITOR" ]; then
+      em=emacs
+    fi
+    ${em} $* &
+    disown $!
+   fi      
 }
 
 function docmd() {
@@ -1855,7 +1859,7 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias grbw="echo git codereview rebase-work; git codereview rebase-work"
 alias grbcont="echo git rebase --continue; git rebase --continue"
-alias gb="git worktree list; git branch | columns"
+alias gb="git worktree list; git branch | column"
 alias gbl="git worktree list; git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
 alias gca="echo git commit --amend ; git commit --amend"
 alias gcaX="echo git commit --amend --reset-author; git commit --amend --reset-author"
