@@ -1779,6 +1779,27 @@ function git_track_remote_branch() {
   git branch --track $B $RB
 }
 
+function setmousepropsfunction() {
+  local SENS=3
+  local ACCEL=1
+
+  if [ -z "$MOUSENAME" ]; then
+    echo "** failed -- MOUSENAME env var unset"
+    return
+  fi
+    
+  # Double check
+  local MN=`xinput --list --short | fgrep "$MOUSENAME"`
+  if [ -z "$MN" ]; then
+    echo "** failed -- can't locate \"$MOUSENAME\" in xinput --list --short output"
+    return
+  fi
+  
+  # Apply settings
+  xinput set-prop "$MOUSENAME" 'Coordinate Transformation Matrix' $SENS 0 0 0 $SENS 0 0 0 1
+  xinput set-prop "$MOUSENAME" 'libinput Accel Speed' $ACCEL
+
+}
 
 #......................................................................
 
@@ -1839,6 +1860,7 @@ alias xtmed='xterm -sb -fn 9x15 -sl 5000'
 alias xtbig='xterm -sb -fn 10x20 -sl 5000'
 alias bash_no_aslr='setarch `uname -m` -R bash'
 alias screendumparea='gnome-screenshot -a'
+alias setmouseprops=setmousepropsfunction
 
 # BTRFS
 alias show_fs_type='stat -f --printf="%T\n" .'
