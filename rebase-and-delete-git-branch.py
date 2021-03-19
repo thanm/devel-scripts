@@ -78,7 +78,7 @@ def perform():
   lines = u.docmdlines("git branch", True)
   if not lines:
     u.error("not currently in git workspace")
-  reg = re.compile(r"^[\*\s]*(\S+)\s*$")
+  reg = re.compile(r"^[\+\*\s]*(\S+)\s*$")
   # Interpret output of git branch
   branches = {}
   for l in lines:
