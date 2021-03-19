@@ -31,6 +31,9 @@ flag_dwarf_cu = None
 # Dump dwarf die chain
 flag_dumpdwarf = False
 
+# Show raw insn
+flag_showraw = False
+
 # Begin-DIE preamble
 bdiere = re.compile(r"^\s*\<\d+\>\<(\S+)\>\:\s*Abbrev\sNumber\:"
                     r"\s+(\d+)\s+\((\S+)\)\s*$")
@@ -154,13 +157,15 @@ def what(func, addr):
   return "address '%s'" % hex(addr)
 
 
-def grab_addr_from_symtab(func, addr, tgt):
-  """Grab starting address and size from ELF symtab or dynsym."""
+def grab_addrs_from_symtab(func, addr, tgt):
+  """Grab starting and ending address(es) from ELF symtab or dynsym."""
   flavs = ["-t"]
   if has_dynamic_section(tgt):
     flavs.append("-T")
   staddr = 0
   enaddr = 0
+  sta = []
+  ena = []
   for flav in flavs:
     u.verbose(1, "looking for %s in output of "
               "objdump %s %s" % (what(func, addr), flav, tgt))
@@ -177,28 +182,36 @@ def grab_addr_from_symtab(func, addr, tgt):
       staddr = int(hexstaddr, 16)
       size = int(hexsize, 16)
       enaddr = staddr + size
+      sta.append(staddr)
+      ena.append(enaddr)
     except ValueError:
       u.verbose(0, "... malformed staddr/size (%s, %s) "
                 "for %s, skipping" % (hexstaddr, hexsize, func))
       return 0, 0
-  return staddr, enaddr
+  return sta, ena
 
 
 def disas(func, addr, tgt):
   """Disassemble a specified function."""
-  staddr, enaddr = grab_addr_from_symtab(func, addr, tgt)
-  if staddr == 0:
-    u.verbose(0, "... could not find %s in "
-              "output of objdump, skipping" % what(func, addr))
-    return
-  cmd = ("objdump --no-show-raw-insn --wide -dl "
-         "--start-address=0x%x "
-         "--stop-address=0x%x %s" % (staddr, enaddr, tgt))
-  if flag_dwarf_cu and not flag_dryrun:
-    lines = u.docmdlines(cmd)
-    dodwarf(lines, tgt)
-  else:
-    docmd(cmd)
+  staddrs, enaddrs = grab_addrs_from_symtab(func, addr, tgt)
+  shrw = " --no-show-raw-insn"
+  if flag_showraw:
+      shrw = ""
+  for ii in range(0, len(staddrs)):
+    staddr = staddrs[ii]
+    enaddr = enaddrs[ii]
+    if staddr == 0:
+      u.verbose(0, "... could not find %s in "
+                "output of objdump, skipping" % what(func, addr))
+    else:
+      cmd = ("objdump%s --wide -dl "
+             "--start-address=0x%x "
+             "--stop-address=0x%x %s" % (shrw, staddr, enaddr, tgt))
+      if flag_dwarf_cu and not flag_dryrun:
+        lines = u.docmdlines(cmd)
+        dodwarf(lines, tgt)
+      else:
+        docmd(cmd)
 
 
 def read_die_chain(lines):
@@ -525,6 +538,7 @@ def usage(msgarg):
     -W X  read and incorporate DWARF from compile unit X
           (if X is ".", read all compile units)
     -Z    dump dwarf DIE chain
+    -R    show raw instruction bytes
 
     Example usage:
 
@@ -537,10 +551,10 @@ def usage(msgarg):
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_echo, flag_dryrun, flag_dwarf_cu, flag_dumpdwarf
+  global flag_echo, flag_dryrun, flag_dwarf_cu, flag_dumpdwarf, flag_showraw
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deDa:f:m:W:Z")
+    optlist, args = getopt.getopt(sys.argv[1:], "deDa:f:m:W:ZR")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -557,6 +571,8 @@ def parse_args():
       flag_echo = True
     elif opt == "-e":
       flag_echo = True
+    elif opt == "-R":
+      flag_showraw = True
     elif opt == "-f":
       flag_functions[arg] = 1
     elif opt == "-a":
