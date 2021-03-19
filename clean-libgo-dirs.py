@@ -37,26 +37,26 @@ def dochdir(thedir):
 
 def do_clean(subdir):
   """Clean this libgo dir."""
-  flavs = (".o", "gox", "gox.tmp", ".a", ".so", ".lo", ".la")
+  flavs = (".o", "gox", "gox.tmp", ".a", ".so", ".lo", ".la", ".go")
   here = os.getcwd()
   dochdir(subdir)
-  if flag_dryrun:
-    u.verbose(0, "... cleaning %s" % subdir)
-  else:
-    cmd = "find . -depth "
-    first = True
-    for item in flavs:
-      if not first:
-        cmd += " -o "
-      first = False
-      cmd += "-name '*%s' -print" % item
-    lines = u.docmdlines(cmd)
-    lines.reverse()
-    debris = lines
-    for d in debris:
-      if not d:
-        continue
-      u.verbose(1, "toclean '%s'" % d)
+  cmd = "find . -depth "
+  first = True
+  for item in flavs:
+    if not first:
+      cmd += " -o "
+    first = False
+    cmd += "-name '*%s' -print" % item
+  lines = u.docmdlines(cmd)
+  #lines.reverse()
+  debris = lines
+  for d in debris:
+    if not d:
+      continue
+    u.verbose(1, "toclean '%s'" % d)
+    if flag_dryrun:
+      u.verbose(0, "... remove %s" % d)
+    else:
       os.unlink(d)
   dochdir(here)
 
