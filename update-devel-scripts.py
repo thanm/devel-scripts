@@ -83,8 +83,9 @@ def read_exceptions():
     ef = os.path.join(flag_dest_dir, exceptions_file)
   exceptions = {}
   if os.path.exists(ef):
+    u.verbose(1, "reading exceptions file %s" % ef)
     try:
-      inf = open(ef, "rb")
+      inf = open(ef, "r")
     except IOError as e:
       u.error("internal error: unable to open "
               "exceptions file %s: %s" % (ef, e.strerror))
