@@ -171,26 +171,28 @@ def examine_ssdroot(ssdroot):
     # For flag_dot, we're only interested in snapshots and volumes
     # related to the current directory. Start by locating the snap
     # or volume that we're in at the moment.
-    vols = []
     here = os.getcwd()
+    u.verbose(2, "here is %s" % here)
     path_components = here.split("/")
-    curvol = "%s" % path_components[2]
-    u.verbose(2, "flag_dot: evaluating curvol=%s" % curvol)
-    if curvol in vol_uid:
-      uid = vol_uid[curvol]
-      u.verbose(2, "flag_dot: curvol=%s uid=%s" % (curvol, uid))
-      # Find parent volume if applicable.
-      if curvol in vol_puid:
-        uid = vol_puid[curvol]
-        curvol = uid_vol[uid]
-        u.verbose(2, "flag_dot: parent curvol=%s uid=%s" % (curvol, uid))
-      # Now add vol itself and all children to tups list.
-      vols.append(curvol)
-      if curvol in voldict:
-        sv = voldict[curvol]
-        for v in sv:
-          vols.append(v)
-      u.verbose(2, "flag_dot: final vols: %s" % vols)
+    if len(path_components) > 2:
+      vols = []
+      curvol = "%s" % path_components[2]
+      u.verbose(2, "flag_dot: evaluating curvol=%s" % curvol)
+      if curvol in vol_uid:
+        uid = vol_uid[curvol]
+        u.verbose(2, "flag_dot: curvol=%s uid=%s" % (curvol, uid))
+        # Find parent volume if applicable.
+        if curvol in vol_puid:
+          uid = vol_puid[curvol]
+          curvol = uid_vol[uid]
+          u.verbose(2, "flag_dot: parent curvol=%s uid=%s" % (curvol, uid))
+        # Now add vol itself and all children to tups list.
+        vols.append(curvol)
+        if curvol in voldict:
+          sv = voldict[curvol]
+          for v in sv:
+            vols.append(v)
+        u.verbose(2, "flag_dot: final vols: %s" % vols)
 
   # Sort order
   tups = []
