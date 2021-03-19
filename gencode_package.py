@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Generate C++ code and makefile for large C++ shared lib.
 
 """
@@ -77,7 +77,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -85,7 +85,7 @@ def usage(msgarg):
     -c N  emit N classes (def: 500) per instances
     -I N  emit N instances
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

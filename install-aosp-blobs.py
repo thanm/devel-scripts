@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Install blobs for a specific device.
 
 Install blobs into an Android client for a specific device: N5/N7/N9.
@@ -58,7 +58,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <device>
 
     options:
@@ -69,7 +69,7 @@ def usage(msgarg):
     Installs AOSP blobs for specified device (options: N5, N, N6, N9).
     Must be run from root of android client (after running 'lunch').
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -121,7 +121,7 @@ def parse_args():
     u.error("ANDROID_PRODUCT_OUT not set (did you run lunch?)")
 
   # Switch to abt
-  print "cd %s" % abt
+  print("cd %s" % abt)
   os.chdir(abt)
 
 

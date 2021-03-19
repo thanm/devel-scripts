@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Dump out .go_exports for a gccg-compiled object or library."""
 
 import getopt
@@ -54,12 +54,12 @@ def examine(afile):
   except IOError as e:
     u.error("unable to open tempfile %s: "
             "%s" % (gexptemp.name, e.strerror))
-  print "== %s ==" % afile
+  print("== %s ==" % afile)
   lines = inf.readlines()
   if not lines:
     u.warning("skipping %s, no .go_export section present" % objfile)
   for line in lines:
-    print line.strip()
+    print(line.strip())
   inf.close()
   if objfile != afile:
     os.unlink(objfile)
@@ -69,13 +69,13 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] file1 file2 ... fileN
 
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

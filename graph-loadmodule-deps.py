@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Generate a DOT graph showing load module dependencies.
 
 Runs objdump to gather load module dependency relationships.
@@ -342,7 +342,7 @@ def emit_to_file(fh):
     bn = os.path.basename(filename)
     nodecolor[bn] = "red"
     input_sonames[bn] = 1
-  u.verbose(1, "input sonames: %s" % " ".join(input_sonames.keys()))
+  u.verbose(1, "input sonames: %s" % " ".join(list(input_sonames.keys())))
   for filename in flag_input_files:
     bn = os.path.basename(filename)
     emit_helper(fh, bn, "node", nodes_emitted, nodenames, empty)
@@ -351,11 +351,11 @@ def emit_to_file(fh):
       slicenodes.update(preds)
   restrictnodes.update(nodes_emitted)
   if slicenodes:
-    u.verbose(1, "slice nodes: %s" % " ".join(slicenodes.keys()))
+    u.verbose(1, "slice nodes: %s" % " ".join(list(slicenodes.keys())))
   for slicenode in slicenodes:
     restrictnodes[slicenode] = 1
     emit_helper(fh, slicenode, "node", nodes_emitted, nodenames, nodes_emitted)
-  u.verbose(1, "restrictnodes: %s" % " ".join(restrictnodes.keys()))
+  u.verbose(1, "restrictnodes: %s" % " ".join(list(restrictnodes.keys())))
 
   # Edges
   edges_emitted = {}
@@ -381,7 +381,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <ELF files>
 
     options:
@@ -397,7 +397,7 @@ def usage(msgarg):
     Notes:
      - arguments are expected to be linked (.so or .exe) but unstripped
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

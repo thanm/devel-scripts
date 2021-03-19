@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Resolve a symbolic link to a real file."""
 
 import getopt
@@ -14,13 +14,13 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] link1 link2 ... linkN
 
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

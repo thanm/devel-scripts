@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to manage creation/deletion of BTRFS subvolumes/snapshots.
 
 This script helps facilitate the creation of BTRFS subvolumes and
@@ -208,7 +208,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <subcommand> ...args...
 
     options:
@@ -221,7 +221,7 @@ def usage(msgarg):
       mksnap E S   create new snapshot "S" from existing volume/snapshot E
       rmsnap  S    remove snapshot S
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

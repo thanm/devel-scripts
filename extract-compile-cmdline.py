@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Extracts compile command line from ninja build output.
 
 Reads either stdin or a specified input file, then extracts out
@@ -217,7 +217,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
@@ -233,7 +233,7 @@ def usage(msgarg):
     -j N  emit code to perform N compilations in parallel
 
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

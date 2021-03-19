@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Converts hex numbers to binary.
 
 Read stdin converting hex text to binary.
@@ -35,13 +35,13 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -73,4 +73,4 @@ for line in lines:
   res = []
   for chunk in chunks:
     res.append(convert(chunk))
-  print " ".join(res)
+  print(" ".join(res))

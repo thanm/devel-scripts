@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter to sort by human-readable size.
 
 Reads stdin, sorts by first chunk (which is human-readable size).
@@ -33,4 +33,4 @@ for line in lines:
 
 stups = sorted(tups)
 for t in stups:
-  print "%-10s %s" % (t[1], t[2])
+  print("%-10s %s" % (t[1], t[2]))

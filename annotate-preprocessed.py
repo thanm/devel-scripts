@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Annotates -E preprocessed source input with line numbers.
 
 Read std input, then annotate each line with line number based on previous
@@ -22,13 +22,13 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -62,7 +62,7 @@ for line in lines:
   if m:
     lnum = int(m.group(1))
     afile = m.group(2)
-    print "<%s:%d>" % (afile, lnum)
+    print("<%s:%d>" % (afile, lnum))
     continue
-  print "%d:%s" % (lnum, line.strip())
+  print("%d:%s" % (lnum, line.strip()))
   lnum += 1

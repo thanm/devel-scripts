@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Sorts input lines by order of decreasing line length.
 
 Read std input, then emit output lines in decreasing/increasing order
@@ -21,14 +21,14 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
     -r    reverse send of sort (increasing length)
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -61,7 +61,7 @@ for line in lines:
   d[ll].append(line)
 
 # Sort
-dkeys = d.keys()
+dkeys = list(d.keys())
 dkeys.sort(reverse=flag_reverse)
 
 # Output

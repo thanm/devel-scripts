@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to check *.so for GCC or LLVM compilation.
 
 Extracts .comment section and examines for proper vintage.
@@ -29,13 +29,13 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <files>
 
     options:
     -d    increase debug msg verbosity level
     -s    summarize version usage
-    """ % me
+    """ % me)
   sys.exit(1)
 
 
@@ -103,20 +103,20 @@ def visit(filename):
   elif not res:
     res = "<unknown>"
     versioncount[res] += 1
-  print "%s: %s" % (filename, res)
+  print("%s: %s" % (filename, res))
 
 
 def summarize():
   """Summarize compiler usage."""
   rawtups = []
-  for key, count in versioncount.iteritems():
+  for key, count in versioncount.items():
     tup = (count, key)
     rawtups.append(tup)
   stups = sorted(rawtups, reverse=True)
-  print ""
-  print "File breakdown by compiler version:"
+  print("")
+  print("File breakdown by compiler version:")
   for tup in stups:
-    print "%d %s" % (tup[0], tup[1])
+    print("%d %s" % (tup[0], tup[1]))
 #
 #......................................................................
 #

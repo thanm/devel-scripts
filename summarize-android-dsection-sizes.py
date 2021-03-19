@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Summarize data section sizes in an Android load module.
 
 Summarize section size info for specified set of Android load
@@ -241,7 +241,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <files>
 
     options:
@@ -251,7 +251,7 @@ def usage(msgarg):
     -X    skip check to to make sure lib is in symbols dir
     -r {32,64} restrict analysis to just ELF-32 or just ELF-64 files
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

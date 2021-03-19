@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to invoke emacs on currently branched files in a git repo.
 
 Invokes Emacs on the current set of files in a private branch.
@@ -57,7 +57,7 @@ def perform():
     allfiles[f] = 1
   for f in modifications:
     allfiles[f] = 1
-  doscmd("
+  print("not yet implemented")
 
 
 def usage(msgarg):
@@ -65,7 +65,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -74,7 +74,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

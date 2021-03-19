@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Summarize repo/git activity in snapshots/volumes.
 
 This script walks the SSD roots on the machine and summarizes
@@ -193,7 +193,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] [dir]
 
     options:
@@ -205,7 +205,7 @@ def usage(msgarg):
     Summarizes disk space usage and repo status for repos located
     in SSD roots.
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

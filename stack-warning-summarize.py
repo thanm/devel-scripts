@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Summarize stack frame warnings.
 
 Read stack frame size warnings, then summarizes the results. Reads from stdin.
@@ -18,14 +18,14 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
     -d    increase debug msg verbosity level
     -b    emit breakdown of functions and stack sizes
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -70,9 +70,9 @@ for line in lines:
 if flag_breakdown:
   sfun = sorted(funcdict.keys())
   for sf in sfun:
-    print "%5d %s" % (funcdict[sf], sf)
+    print("%5d %s" % (funcdict[sf], sf))
 
 # Summarize
-stacksum = sum(funcdict[i] for i in funcdict.keys())
-print "Functions: %d" % len(funcdict.keys())
-print "Accum size: %d" % stacksum
+stacksum = sum(funcdict[i] for i in list(funcdict.keys()))
+print("Functions: %d" % len(list(funcdict.keys())))
+print("Accum size: %d" % stacksum)

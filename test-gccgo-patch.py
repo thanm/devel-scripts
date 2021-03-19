@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Test a specified gccgo/gofrontend patch.
 
 This script automates some of the steps needed to test a patch
@@ -116,7 +116,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage: %s -c X -b Y [options]
 
     options:
@@ -142,7 +142,7 @@ def usage(msgarg):
       This will pull changes set 35101 patch 1, perform build and test
       in build dir build-bootstrap.
 
-    """ % (me, me, me)
+    """ % (me, me, me))
   sys.exit(1)
 
 

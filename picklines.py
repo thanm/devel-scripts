@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Pick lines N through M of stdin."""
 
 import sys

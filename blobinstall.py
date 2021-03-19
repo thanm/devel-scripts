@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Install a 'blob' file from an extract shell archive.
 
 This script installs the 3rd party blob contained in a previously

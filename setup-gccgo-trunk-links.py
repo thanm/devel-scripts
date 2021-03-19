@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Set up GCC repository for gccgo development.
 
 Developing gccgo requires a copy of the gofrontend repository along side a GCC
@@ -107,7 +107,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -115,7 +115,7 @@ def usage(msgarg):
     -R    reverse mode (undo links and restore files)
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

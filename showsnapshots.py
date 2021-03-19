@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Small helper script to dump out BTRFS subvolumes.
 
 This script dumps out the BTRFS subvolumes and snapshots of those
@@ -70,7 +70,7 @@ def printvol(v, voldict, il, ssdroot):
         par = "%s " % volsizes[sv]
       else:
         u.verbose(1, "no size info for %s" % sv)
-    print "snapshot %s%s/%s" % (par, ssdroot, sn)
+    print("snapshot %s%s/%s" % (par, ssdroot, sn))
     printvol(sn, voldict, il+2, ssdroot)
 
 
@@ -81,12 +81,12 @@ def examine_ssdroot(ssdroot):
     lines = u.docmdlines("df -h %s" % ssdroot)
     dfline = lines[1]
     dfline = re.sub(r"\s+", " ", dfline)
-    print "............. %s ............." % dfline
+    print("............. %s ............." % dfline)
 
   if flag_showsize:
-    print "... gathering size info with 'du'"
+    print("... gathering size info with 'du'")
     lines = u.docmdlines("du -h -d 1 %s" % ssdroot)
-    print "... done"
+    print("... done")
     for line in lines:
       chunks = line.split()
       volsizes[chunks[1]] = chunks[0]
@@ -145,7 +145,7 @@ def examine_ssdroot(ssdroot):
   voldict = defaultdict(lambda: defaultdict(int))
 
   # Evaluate parent subvolume relationships
-  for sv, puid in vol_puid.items():
+  for sv, puid in list(vol_puid.items()):
     if puid not in uid_vol:
       # Orphan snapshot
       u.warning("%s/%s appears to be orphaned; "
@@ -157,7 +157,7 @@ def examine_ssdroot(ssdroot):
 
   # For -t output, have parent vol modtime inherit from children
   if flag_sort_modtime:
-    for pv, svdict in voldict.iteritems():
+    for pv, svdict in voldict.items():
       for cv in svdict:
         pvm = vol_mtime[pv]
         cvm = vol_mtime[cv]
@@ -217,14 +217,14 @@ def examine_ssdroot(ssdroot):
           vsize = "%s " % volsizes[sv]
         else:
           u.verbose(1, "no size info for %s" % sv)
-      print "subvolume %s%s/%s" % (vsize, ssdroot, v)
+      print("subvolume %s%s/%s" % (vsize, ssdroot, v))
       printvol(v, voldict, 2, ssdroot)
 
   # Show pending deletions
   if not flag_terse_output:
     dsortedkeys = sorted(uid_pending_delete.keys())
     for v in dsortedkeys:
-      print "[pending deletion: subvolume uid %s]" % v
+      print("[pending deletion: subvolume uid %s]" % v)
 
   # Show things that are not snapshots/volumes
   nonvolumes = []
@@ -233,7 +233,7 @@ def examine_ssdroot(ssdroot):
       if filename not in vol_uid:
         nonvolumes.append(filename)
     if not flag_terse_output and nonvolumes:
-      print "++ non-volumes: %s" % " ".join(nonvolumes)
+      print("++ non-volumes: %s" % " ".join(nonvolumes))
 
 
 def find_ssdroots():
@@ -284,7 +284,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] [dir]
 
     options:
@@ -303,7 +303,7 @@ def usage(msgarg):
     ".", then show only snapshots and volumes related to the current
     dir.
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Inspect path to locate possible completions for cmd.
 
 Walk through the entries in the current PATH env var and look for
@@ -57,7 +57,7 @@ def inspect_path():
       for filename in os.listdir(d):
         m = matcher.match(filename)
         if m is not None:
-          print "%s/%s" % (d, filename)
+          print("%s/%s" % (d, filename))
 
 
 def shell_is_bash():
@@ -91,7 +91,7 @@ def inspect_bash_functions():
     m = matcher.match(line)
     if m is not None:
       frag = m.group(1)
-      print "bash function %s" % frag
+      print("bash function %s" % frag)
 
 #----------------------------------------------------------------------
 #

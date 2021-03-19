@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to create LLVM trunk devel subvolume or snapshot.
 
 Creates BTRFS subvolume with trunk git-on-svn client, plus binutils, then
@@ -412,7 +412,7 @@ def emit_cmake_cmd_script(flav, targdir):
                "../llvm" % (dyldsetting, limitlink,
                             cmake_type, bpath, ccomp, extra))
   if flag_dryrun:
-    print "+++ archiving cmake cmd: %s" % cmake_cmd
+    print("+++ archiving cmake cmd: %s" % cmake_cmd)
   else:
     try:
       with open("./.cmake_cmd", "w") as wf:
@@ -427,7 +427,7 @@ def emit_rebuild_scripts(flav, targdir):
   """Emit top-level clean, rebuild scripts."""
   bpath = "%s/%s/build.%s" % (ssdroot, targdir, flav)
   if flag_dryrun:
-    print "+++ archiving clean + build cmds"
+    print("+++ archiving clean + build cmds")
     return
 
   # Emit clean script
@@ -595,7 +595,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -637,7 +637,7 @@ def usage(msgarg):
 
       %s -r llvm-trunk -c
 
-    """ % (me, me, me, me, me)
+    """ % (me, me, me, me, me))
   sys.exit(1)
 
 
@@ -716,7 +716,7 @@ def parse_args():
   u.verbose(2, "llvm_rw_svn is: %s" % llvm_rw_svn)
 
   # Validate cmake_flavors
-  for tag, d in cmake_flavors.iteritems():
+  for tag, d in cmake_flavors.items():
     for subtag in d:
       if subtag not in legal_tags:
         u.error("internal error: cmake_flavors entry %s "

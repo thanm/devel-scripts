@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Patch repo for gccgo benchmarking.
 
 Helper script for patching a Go repo in preparation for building
@@ -66,7 +66,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] -r repo -f <flags>
 
     options:
@@ -75,7 +75,7 @@ def usage(msgarg):
     -f S   patch build with flags in string S
     -x     add -x to patched build flags
 
-    """ % me
+    """ % me)
 
   sys.exit(1)
 

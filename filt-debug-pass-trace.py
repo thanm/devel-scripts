@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter out datestamps from -debug-pass=Executions output.
 
 For filtering clang/llc/opt trace output.

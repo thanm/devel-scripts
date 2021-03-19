@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to capture/benchmark Go compiler bootstrap.
 
 This script mimics the actions taken by "go tool dist bootstrap" to
@@ -169,7 +169,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -188,7 +188,7 @@ def usage(msgarg):
     - rewrite the build transcript into a script that can be
       used to profile the bootstrap compiler
 
-    """ % (me, me)
+    """ % (me, me))
 
   sys.exit(1)
 

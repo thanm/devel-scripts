@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Perform multiple Android builds in a single repo.
 
 This script cycles through a set of different build targets within an
@@ -304,13 +304,13 @@ def munge_single_makefile(mfile, operations):
 def munge_makefiles_if_needed():
   """Modify build makefiles to enable more gcc compilation."""
   u.verbose(1, "munging makefiles")
-  for mfile, operations in munge_table.iteritems():
+  for mfile, operations in munge_table.items():
     if flag_munge_make:
       munge_single_makefile(mfile, operations)
     else:
       restore_single_makefile(mfile)
   if flag_postmunge_exit:
-    print "EARLY EXIT IN munge_makefiles_if_needed"
+    print("EARLY EXIT IN munge_makefiles_if_needed")
     exit(0)
 
 
@@ -465,7 +465,7 @@ def read_device_info():
   # Reading complete. Now match things up to make sure
   # that we have at least some correspondence.
   found_count = 0
-  for codename, tag in codename_to_tag.iteritems():
+  for codename, tag in codename_to_tag.items():
     if tag not in tag_to_serial:
       u.warning("CODENAMETOTAG mentions tag %s, which "
                 "does not appear in DEVTAGS" % tag)
@@ -665,7 +665,7 @@ def perform():
     allbuilds = flag_targets
   else:
     builds = []
-    for abuild, val in available_builds.iteritems():
+    for abuild, val in available_builds.items():
       if val:
         builds.append(abuild)
     allbuilds = sorted(builds)
@@ -680,11 +680,11 @@ def perform():
       failed.append(build_item)
     else:
       passed.append(build_item)
-  print "Summary of results:"
+  print("Summary of results:")
   if passed:
-    print "passed: %s" % " ".join(passed)
+    print("passed: %s" % " ".join(passed))
   if failed:
-    print "failed: %s" % " ".join(failed)
+    print("failed: %s" % " ".join(failed))
 
 
 def usage(msgarg):
@@ -692,7 +692,7 @@ def usage(msgarg):
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
   mebase = os.path.basename(sys.argv[0])
-  print """\
+  print("""\
     usage:  %s [options]
 
     Available targets:
@@ -735,7 +735,7 @@ def usage(msgarg):
 
 
     """ % (mebase, " ".join(sorted(available_builds.keys())),
-           mebase, mebase, mebase)
+           mebase, mebase, mebase))
 
   sys.exit(1)
 

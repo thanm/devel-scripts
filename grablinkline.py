@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter to collect link link.
 
 Reads stdin, collects and explodes link line.

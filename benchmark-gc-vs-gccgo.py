@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to benchmark gc <-> gccgo.
 
 This script uses the Go compiler itself as a benchmark to compare how
@@ -797,7 +797,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -846,7 +846,7 @@ def usage(msgarg):
       to compare the performance of "gc-compiled" vs "gccgo-compiled"
       cs "gollvm-compiled" compiler binary
 
-    """ % (me, variants_to_string(), me)
+    """ % (me, variants_to_string(), me))
 
   sys.exit(1)
 

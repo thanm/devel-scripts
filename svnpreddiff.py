@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Graphical diff of svn working copy file against predecessor.
 
 Determine svn predecessor of specified file and run 'meld' to compare
@@ -40,7 +40,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <file or URL>
 
     options:
@@ -52,7 +52,7 @@ def usage(msgarg):
 
     Note that use of URLs requires -R option.
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

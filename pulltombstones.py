@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Pull any tombstone files from the connected Android device.
 
 Uses 'adb' to inspect and pull any tombstone files from the connected
@@ -50,29 +50,29 @@ def collectem():
         # already there?
         rc = u.docmdnf("cmp -s %s %s_tmp" % (newname, newname))
         if rc == 0:
-          print "file %s already uploaded, skipping..." % fname
+          print("file %s already uploaded, skipping..." % fname)
         else:
-          print "overwriting existing %s with new version" % fname
+          print("overwriting existing %s with new version" % fname)
       else:
         u.docmdnf("mv %s_tmp %s" % (newname, newname))
-        print "uploaded new tombstone to %s" % newname
+        print("uploaded new tombstone to %s" % newname)
 
   # Anything there?
   if not fnames:
-    print "No tombstones found... terminating."
+    print("No tombstones found... terminating.")
 
 
 def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

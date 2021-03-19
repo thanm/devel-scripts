@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to cleanup merged local branches.
 
 Given a private branch XXX, runs the following sequence of commands:
@@ -112,7 +112,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -121,7 +121,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

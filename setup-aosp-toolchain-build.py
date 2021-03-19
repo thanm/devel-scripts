@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to create AOSP toolchain development work area.
 
 Creates symbolic links in /tmp and runs setup scripts.
@@ -145,7 +145,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -166,7 +166,7 @@ def usage(msgarg):
 
       %s -n /ssd/ndk
 
-    """ % (me, me, me)
+    """ % (me, me, me))
   sys.exit(1)
 
 

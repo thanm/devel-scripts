@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to create LNT trunk development volume.
 
 Creates BTRFS subvolume with trunk LNT and LLVM test suite
@@ -123,7 +123,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -137,7 +137,7 @@ def usage(msgarg):
 
       %s -s lnt-blah -b /ssd/llvm-work/build.opt
 
-    """ % (me, me)
+    """ % (me, me))
   sys.exit(1)
 
 

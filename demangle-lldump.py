@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter to demangle llvm asm dumps.
 
 Reads stdin, tries to demangle every @ symbol.
@@ -159,7 +159,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
@@ -168,7 +168,7 @@ def usage(msgarg):
     -o G  write to output file O
     -x D  use demangler program D
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

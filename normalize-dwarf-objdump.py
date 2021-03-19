@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter to normalize/canonicalize objdump --dwarf=info dumps.
 
 Reads stdin, normalizes / canonicalizes and/or strips the output of objdump
@@ -281,7 +281,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
@@ -294,7 +294,7 @@ def usage(msgarg):
     -A    do not annotate abstract origin refs with name
     -N    don't rewrite offsets (turn normalization off)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

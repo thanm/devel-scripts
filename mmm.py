@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Run equivalent of 'mmm <dir>'.
 
 """
@@ -49,7 +49,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <subdir>
 
     options:
@@ -77,7 +77,7 @@ def usage(msgarg):
      %s -t -x bootimage-nodeps
 
 
-    """ % (me, me, me, me)
+    """ % (me, me, me, me))
   sys.exit(1)
 
 

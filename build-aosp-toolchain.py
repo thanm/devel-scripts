@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Perform a previously configured AOSP toolchain build.
 
 This script kicks off a series of builds of the toolchain gcc compiler
@@ -204,8 +204,8 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  la = " ".join(legal_arches.keys())
-  print """\
+  la = " ".join(list(legal_arches.keys()))
+  print("""\
     usage:  %s [options]
 
     options:
@@ -235,7 +235,7 @@ def usage(msgarg):
 
       %s -n /tmp/AOSP -g 5.2 -i 0.14
 
-    """ % (me, la, me, me, me)
+    """ % (me, la, me, me, me))
   sys.exit(1)
 
 
@@ -253,7 +253,7 @@ def parse_args():
     # unrecognized option
     usage(str(err))
 
-  flag_arches = legal_arches.keys()
+  flag_arches = list(legal_arches.keys())
   specific_arches = {}
   for opt, arg in optlist:
     if opt == "-d":
@@ -309,5 +309,5 @@ parse_args()
 u.setdeflanglocale()
 erc = perform()
 if erc != 0:
-  print "*** BUILD FAILED"
+  print("*** BUILD FAILED")
 exit(erc)

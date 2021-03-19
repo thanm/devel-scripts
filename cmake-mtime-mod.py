@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Utility for preserving/restoring mod times on CMakeLists.txt files.
 
 This utility is design to increase productive developer time when
@@ -157,7 +157,7 @@ def usage(msgarg=None):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <mode>
 
     where <mode> is either "pre" or "post"
@@ -169,7 +169,7 @@ def usage(msgarg=None):
     -F C     don't run 'find', but instead operate only on file C
     -S       skip cleanup of token/tempfile in post mode
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

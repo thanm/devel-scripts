@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Post-process a GC roots dump.
 """
 
@@ -132,7 +132,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] < input > output
 
     options:
@@ -141,7 +141,7 @@ def usage(msgarg):
     -o G  write to output file O
     -m M  analyze load module M
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

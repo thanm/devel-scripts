@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Wrap a code or assembly dump in HTML for viewing.
 
 Read a file X and emit X.html that has nice formatting, with
@@ -107,7 +107,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <files>
 
     options:
@@ -116,7 +116,7 @@ def usage(msgarg):
     Opens each specified file F, reads it, and emits a file
     F.html with formatting.
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Wrapper to selectively run gollvm instead of gccgo.
 
 This is a shim script that intercepts invocations of 'gccgo' and then
@@ -206,7 +206,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s <gccgo args>
 
     Options (via command line)
@@ -219,7 +219,7 @@ def usage(msgarg):
     -D          dry run (echo cmds but do not execute)
     -G          pure gccgo compile (no llvm-goparse invocations)
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

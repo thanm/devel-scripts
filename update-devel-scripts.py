@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Compares versions of personal Python scripts with git dir.
 
 """
@@ -125,7 +125,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <subdir>
 
     options:
@@ -138,7 +138,7 @@ def usage(msgarg):
     Default src: %s
     Default dst: %s
 
-    """ % (me, def_source_dir, def_dest_dir)
+    """ % (me, def_source_dir, def_dest_dir))
   sys.exit(1)
 
 

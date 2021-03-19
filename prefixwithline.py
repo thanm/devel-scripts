@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Read stdin, output same with line prefix line numbers.
 
 Read std input, then emit each line tagged with its line number.

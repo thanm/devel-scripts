@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Creates a backup snapshot of a modified git repo.
 
 Snapshots the modified files in a git repo. Data saved include copies
@@ -138,7 +138,7 @@ def collect_modfiles():
 def emit_deletions_and_renames():
   """Emit record of deletions and renames."""
   deletions = {}
-  for afile, op in modifications.iteritems():
+  for afile, op in modifications.items():
     if op == "D":
       deletions[afile] = 1
   if deletions:
@@ -155,7 +155,7 @@ def emit_deletions_and_renames():
       u.verbose(0, "emitting record of renames to %s" % outf)
     else:
       with open(outf, "w") as wf:
-        for oldfile, newfile in renames.iteritems():
+        for oldfile, newfile in renames.items():
           wf.write("%s -> %s\n" % (oldfile, newfile))
 
 
@@ -182,7 +182,7 @@ def emit_modified_files():
   nf = 0
   if flag_oldsha:
     showsha = flag_oldsha
-  for afile, op in modifications.iteritems():
+  for afile, op in modifications.items():
     destf = "%s/%s" % (flag_destdir, afile)
     if op == "A" or op == "M":
       copy_file(afile, destf)
@@ -227,7 +227,7 @@ def usage(msgarg=None):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] -o <destdir>
 
     options:
@@ -242,7 +242,7 @@ def usage(msgarg=None):
     -T Y     for -B, set tracking branch to Y (default is
              to auto-detect)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

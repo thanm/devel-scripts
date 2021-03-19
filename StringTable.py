@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """String canonicalizer module.
 
 Helper class to record canonical strings. Methods:

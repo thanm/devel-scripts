@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Run 'adb devices' and show results in friendly way.
 
 Runs 'adb devices' and integrates the results with environment
@@ -72,27 +72,27 @@ def perform():
     else:
       tag = serial_to_tag[ser]
       devices_found[tag] = 1
-    print "%2s %8s %16s %s" % (sel, tag, ser, disp)
+    print("%2s %8s %16s %s" % (sel, tag, ser, disp))
 
   if flag_showall:
-    for tag, ser in tag_to_serial.iteritems():
+    for tag, ser in tag_to_serial.items():
       if tag in devices_found:
         continue
-      print "%2s %8s %16s %s" % ("", tag, ser, "<unconnected>")
+      print("%2s %8s %16s %s" % ("", tag, ser, "<unconnected>"))
 
 
 def usage(msgarg=None):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
     -d    increase debug msg verbosity level
     -a    show disposition for all devices, not just those connected
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

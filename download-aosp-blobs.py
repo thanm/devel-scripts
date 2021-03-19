@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Manage downloading of AOSP blobs.
 
 This script scrapes the contents of the Google web page that tracks
@@ -76,10 +76,10 @@ def download_blob(device, version, link):
   base = os.path.basename(link)
   path = "%s/%s" % (verdir, base)
   if not os.path.exists(path):
-    print "... downloading %s => %s" % (link, path)
+    print("... downloading %s => %s" % (link, path))
     u.docmd("curl -L %s -o %s" % (link, path))
   else:
-    print "... skipping %s blob %s (exists in archive already)" % (device, link)
+    print("... skipping %s blob %s (exists in archive already)" % (device, link))
 
   # Update current version link
   curlink = "%s/cur" % flag_archive_dir
@@ -102,7 +102,7 @@ def postprocess(scraper):
     scraper.dump()
   blobtable = scraper.blobtable()
   version = scraper.version()
-  for device, rows in blobtable.iteritems():
+  for device, rows in blobtable.items():
     idx = 0
     for r in rows:
       u.verbose(1, "device=%s idx=%d blob=%s\n" % (device, idx, r[2]))
@@ -113,7 +113,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -127,7 +127,7 @@ def usage(msgarg):
 
     and stores them in archive dir for future use.
 
-    """ % (os.path.basename(sys.argv[0]), flag_scrape_target)
+    """ % (os.path.basename(sys.argv[0]), flag_scrape_target))
   sys.exit(1)
 
 
@@ -225,7 +225,7 @@ class NexusBlobPageScraper(object):
     # </table>
     #
 
-    for tag, device_desc in self._device_tags.iteritems():
+    for tag, device_desc in self._device_tags.items():
       self._scrape_version(tag, device_desc, tree)
       self._scrape_blobs(tag, device_desc, tree)
 
@@ -240,12 +240,12 @@ class NexusBlobPageScraper(object):
 
   def dump(self):
     sys.stderr.write("version: %d\n" % self._version)
-    for tag, rowlist in self._blobtable.iteritems():
+    for tag, rowlist in self._blobtable.items():
       idx = 0
-      print "\nDevice %s:" % tag
+      print("\nDevice %s:" % tag)
       for r in rowlist:
         columns = " ".join(r)
-        print "%d: %s" % (idx, columns)
+        print("%d: %s" % (idx, columns))
         idx += 1
 
   def _scrape_version(self, tag, device_desc, tree):

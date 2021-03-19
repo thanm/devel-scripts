@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter for obscuring hex addresses.
 
 Filters out 'addresses' of the form 0x0000000007641700, replacing them

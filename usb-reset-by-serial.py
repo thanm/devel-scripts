@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Reset a USB device (presumbly android phone) by serial number.
 
 Given a serial number, inspects connected USB devices and issues
@@ -64,7 +64,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] XXYYZZ
 
     where XXYYZZ is the serial number of a connected Android device.
@@ -72,7 +72,7 @@ def usage(msgarg):
     options:
     -d    increase debug msg verbosity level
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

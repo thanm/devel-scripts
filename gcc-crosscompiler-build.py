@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Configure and/or build a GCC cross compiler.
 
 Utilities for configuring and building a GCC cross compiler.
@@ -365,7 +365,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -393,7 +393,7 @@ def usage(msgarg):
 
       %s -t x86_64-linux-gnu -e -B -L go
 
-    """ % (me, me, me)
+    """ % (me, me, me))
   sys.exit(1)
 
 

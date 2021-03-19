@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Filter out input lines that have embedded spaces or quotes.
 
 Read std input, filter out any line with embedded spaces or quotes. Intended to

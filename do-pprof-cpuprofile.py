@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to generate pprof CPU profile reports from a set of data files.
 
 """
@@ -141,7 +141,7 @@ def perform():
               "raw": "%s/raw.%s.txt" % (flag_outdir, flag_tag)}
 
   # Write to file
-  for p, dest in profiles.iteritems():
+  for p, dest in profiles.items():
     ppo.write("%s > %s\n" % (p, dest))
   ppo.write("quit\n")
   ppo.close()
@@ -157,7 +157,7 @@ def perform():
 
   # Check to make sure the files turned up.
   if not flag_dryrun:
-    for p, dest in profiles.iteritems():
+    for p, dest in profiles.items():
       if not os.path.exists(dest):
         u.error("error: %s profile '%s' not present "
                 "after pprof run" % (p, dest))
@@ -168,7 +168,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -185,7 +185,7 @@ def usage(msgarg):
 
     %s -b myprogram.exe -i f1.p:f2.p:f3.p -o outdir -t release
 
-    """ % (me, me)
+    """ % (me, me))
 
   sys.exit(1)
 

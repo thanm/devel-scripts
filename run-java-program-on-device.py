@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Compile and run specified Java file on connected device.
 
 Compiles a specified java program, pushes it to the device,
@@ -330,7 +330,7 @@ def usage(msgarg):
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
     meb = os.path.basename(sys.argv[0])
-  print """\
+  print("""\
     usage:  %s [options] program.java <args>
 
     options:
@@ -376,7 +376,7 @@ Examples:
     %s -S single -P -e \
            fibonacci.java fibonacci 39 39 39
 
-    """ % (meb, meb, meb, meb, meb)
+    """ % (meb, meb, meb, meb, meb))
   sys.exit(1)
 
 

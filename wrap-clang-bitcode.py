@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Runs clang command to generated bitcode, then runs opt/llc with options.
 
 Given a clang command of the form "clang .... -c mumble.c", this
@@ -257,7 +257,7 @@ def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] -- <clangbinary> <clangoptions>
 
     options:
@@ -271,7 +271,7 @@ def usage(msgarg):
     -L X  pass option X to llc
     -O Y  pass option Y to opt
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 

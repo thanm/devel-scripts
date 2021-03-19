@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Set up a GCC repository.
 
 Download and configure a GCC repository. There are many options
@@ -142,7 +142,7 @@ def setup_build_dirs(targ):
     doscmd("../binutils/configure --prefix=%s/binutils-cross "
            "--enable-gold=default --enable-plugins" % root)
     dochdir("..")
-  for b, d in build_flavors.iteritems():
+  for b, d in build_flavors.items():
     if os.path.exists(b):
       u.verbose(0, "... build dir '%s' already exists, skipping setup" % b)
       continue
@@ -261,7 +261,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -282,7 +282,7 @@ def usage(msgarg):
 
       %s -f svn -g
 
-    """ % (me, me)
+    """ % (me, me))
   sys.exit(1)
 
 
@@ -322,7 +322,7 @@ def parse_args():
     elif opt == "-f":
       if arg not in flavors:
         usage("flavor %s not in set of legal "
-              "flavors: %s" % (arg, " ".join(flavors.keys())))
+              "flavors: %s" % (arg, " ".join(list(flavors.keys()))))
       flag_flavor = arg
     elif opt == "-D":
       flag_dryrun = True

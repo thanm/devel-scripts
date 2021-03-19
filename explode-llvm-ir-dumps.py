@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Explode an LLVM IR dump.
 
 Given a debug dump generated from the -print-debug-all option, split out the
@@ -242,7 +242,7 @@ def emitstats():
   """Emit stats and index."""
   indname = os.path.join(flag_outdir, "index.txt")
   totaldumps = 0
-  for _, v in dumps.iteritems():
+  for _, v in dumps.items():
     totaldumps += v
   u.verbose(0, "... captured %d total dumps, %d functions, "
             "%d loops, %d passes" % (totaldumps, len(functions),
@@ -276,7 +276,7 @@ def usage(msgarg):
   me = os.path.basename(sys.argv[0])
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options]
 
     options:
@@ -284,7 +284,7 @@ def usage(msgarg):
     -o X  write dumps to dir X
     -D    dryrun mode (echo commands but do not execute)
 
-    """ % me
+    """ % me)
   sys.exit(1)
 
 

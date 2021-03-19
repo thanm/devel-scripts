@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Script to analyze layout of text/data objects in an Android load module.
 
 Runs objdump to gather info on the symbols defined in one or more
@@ -320,7 +320,7 @@ def examinefile(filename):
   if file_is_stripped(secsizes):
     u.verbose(1, "skipping file %s, already stripped" % filename)
     return
-  for secname, secsize in secsizes.iteritems():
+  for secname, secsize in secsizes.items():
     allsecsizes[secname] += secsize
   examine_symbols(filename, secsizes)
 
@@ -351,7 +351,7 @@ def record_topsize(secname, size, symname):
     return
   minsym = None
   minsize = None
-  for sm, sz in secdict.iteritems():
+  for sm, sz in secdict.items():
     if not minsize or sz < minsize:
       minsize = sz
       minsym = sm
@@ -363,7 +363,7 @@ def record_topsize(secname, size, symname):
 def layout_analysis(secdict, dupdict, filename, secsizes):
   """Analyze symbol layout in file."""
 
-  for sec, symdict in secdict.iteritems():
+  for sec, symdict in secdict.items():
 
     if sec not in insections:
       continue
@@ -372,8 +372,8 @@ def layout_analysis(secdict, dupdict, filename, secsizes):
     sorted_offsets = sorted(symdict.keys())
 
     # Preamble
-    print ""
-    print "file: %s section: %s" % (filename, sec)
+    print("")
+    print("file: %s section: %s" % (filename, sec))
 
     # Info on previously processed symbol
     prev_sym_off = -1
@@ -403,7 +403,7 @@ def layout_analysis(secdict, dupdict, filename, secsizes):
         if pstart > off:
           if flag_show_symbols == 1:
             overlap = pstart = off
-            print "   overlap of %d bytes" % overlap
+            print("   overlap of %d bytes" % overlap)
         else:
           padding = off - pstart
           if padding < 0:
@@ -415,22 +415,22 @@ def layout_analysis(secdict, dupdict, filename, secsizes):
               # assume any padding with size >= 8 bytes is a static function
               total_padding += padding
               if flag_show_symbols == 1:
-                print " * 0x%x padding %d bytes" % (pstart, padding)
+                print(" * 0x%x padding %d bytes" % (pstart, padding))
             else:
               if flag_show_symbols == 1:
-                print " * 0x%x unknown %d bytes" % (pstart, padding)
+                print(" * 0x%x unknown %d bytes" % (pstart, padding))
       if flag_show_symbols == 1:
         algn_str = ""
         if flag_dump_sym_alignment:
           algn_str = "A=%d " % algn
-        print "   0x%x S=%d %s%s" % (off, symsize, algn_str, symname)
+        print("   0x%x S=%d %s%s" % (off, symsize, algn_str, symname))
       prev_sym_size = symsize
       prev_sym_off = off
 
     if flag_dump_sym_alignment:
-      print " symbol alignment histogram:"
-      for algn, count in alignments.iteritems():
-        print "  aligned to %d bytes: %d symbols" % (algn, count)
+      print(" symbol alignment histogram:")
+      for algn, count in alignments.items():
+        print("  aligned to %d bytes: %d symbols" % (algn, count))
         if sec == ".text":
           if algn in totfuncalign:
             totfuncalign[algn] += count
@@ -439,8 +439,8 @@ def layout_analysis(secdict, dupdict, filename, secsizes):
 
     stot = secsizes[sec]
     frac = (total_size*1.0 / stot*1.0) * 100.0
-    print (" total symbol size is %d (%2.1f%% of "
-           "total %s)" % (total_size, frac, secsizes[sec]))
+    print((" total symbol size is %d (%2.1f%% of "
+           "total %s)" % (total_size, frac, secsizes[sec])))
 
     # For sections such as .text and .data, there are few anonymous
     # locations -- most every bit of storage corresponds to some
@@ -453,8 +453,8 @@ def layout_analysis(secdict, dupdict, filename, secsizes):
       totpaddingbysection[sec] += total_padding
       stot = secsizes[sec]
       frac = (total_padding*1.0 / stot*1.0) * 100.0
-      print (" padding for %s: %d bytes out of %d total (%2.1f%%)" %
-             (sec, total_padding, stot, frac))
+      print((" padding for %s: %d bytes out of %d total (%2.1f%%)" %
+             (sec, total_padding, stot, frac)))
 
     if flag_report_duplicates:
       report_duplicates(dupdict, sec, secsizes)
@@ -466,7 +466,7 @@ def report_duplicates(dupdict, sec, secsizes):
 
   # Collect duplicates
   rawtups = []
-  for tag, count in tagdict.iteritems():
+  for tag, count in tagdict.items():
     if count < 2:
       continue
     words = tag.split(":")
@@ -486,7 +486,7 @@ def report_duplicates(dupdict, sec, secsizes):
     count = tup[2]
     total_dupsize += (count - 1) * sz
     if flag_show_symbols:
-      print " dup symbol %s size %d: %d instances" % (name, sz, count)
+      print(" dup symbol %s size %d: %d instances" % (name, sz, count))
 
   if total_dupsize:
     totdupbytesbysection[sec] += total_dupsize
@@ -494,30 +494,30 @@ def report_duplicates(dupdict, sec, secsizes):
   # Summarize waste relative to total section size
   stot = secsizes[sec]
   frac = (total_dupsize*1.0 / stot*1.0) * 100.0
-  print (" estimated bytes wasted from duplication: "
-         "%d (%2.1f%% of total %s)" % (total_dupsize, frac, stot))
+  print((" estimated bytes wasted from duplication: "
+         "%d (%2.1f%% of total %s)" % (total_dupsize, frac, stot)))
 
 
 def summarize_dsec(secdict, filename):
   """Summarize contents of interesting sections."""
 
   if u.verbosity_level() > 2:
-    print "Dump of all interesting sections for %s" % filename
-    for sec, symdict in secdict.iteritems():
+    print("Dump of all interesting sections for %s" % filename)
+    for sec, symdict in secdict.items():
       if sec not in insections:
         continue
-      print "Section: %s" % sec
-      for off, pair in symdict.iteritems():
+      print("Section: %s" % sec)
+      for off, pair in symdict.items():
         sz = pair[0]
         sname = pair[1]
-        print "  off %s siz %s name %s" % (off, sz, sname)
+        print("  off %s siz %s name %s" % (off, sz, sname))
 
   sectotals = {}
-  for sec, symdict in secdict.iteritems():
+  for sec, symdict in secdict.items():
     sectotal = 0
     if sec not in insections:
       continue
-    for off, pair in symdict.iteritems():
+    for off, pair in symdict.items():
       sz = pair[0]
       sectotal += sz
       sname = pair[1]
@@ -542,45 +542,45 @@ def collect_all_loadmodules():
 
 def layout_summary():
   """Print summary information on layout."""
-  print "\nTotal padding by section:"
-  for sec, pad in totpaddingbysection.iteritems():
+  print("\nTotal padding by section:")
+  for sec, pad in totpaddingbysection.items():
     stot = allsecsizes[sec]
     frac = (pad*1.0 / stot*1.0) * 100.0
-    print " %s %d (%2.1f%% of total %d)" % (sec, pad, frac, stot)
+    print(" %s %d (%2.1f%% of total %d)" % (sec, pad, frac, stot))
 
   if flag_report_duplicates:
-    print "\nTotal bytes (est) wasted from duplication by section:"
-    for sec, dup in totdupbytesbysection.iteritems():
+    print("\nTotal bytes (est) wasted from duplication by section:")
+    for sec, dup in totdupbytesbysection.items():
       stot = allsecsizes[sec]
       frac = (dup*1.0 / stot*1.0) * 100.0
-      print " %s %d (%2.1f%% of total %d)" % (sec, dup, frac, stot)
+      print(" %s %d (%2.1f%% of total %d)" % (sec, dup, frac, stot))
 
   if flag_dump_sym_alignment:
-    print "\nGlobal alignment histogram for .text sections"
-    for align, count in totfuncalign.iteritems():
-      print " aligned to %d bytes: %d symbols" % (align, count)
+    print("\nGlobal alignment histogram for .text sections")
+    for align, count in totfuncalign.items():
+      print(" aligned to %d bytes: %d symbols" % (align, count))
 
 
 def topsize_summary():
   """Report top symbols by size."""
-  for secname, secdict in topsym_secdict.iteritems():
+  for secname, secdict in topsym_secdict.items():
     if secname not in insections:
       continue
-    print "\nTop symbols in section \"%s\":" % secname
+    print("\nTop symbols in section \"%s\":" % secname)
     rawtups = []
-    for sm, sz in secdict.iteritems():
+    for sm, sz in secdict.items():
       tup = (sz, sm)
       rawtups.append(tup)
     stups = sorted(rawtups, reverse=True)
     for t in stups:
-      print "%5d %s" % (t[0], t[1])
+      print("%5d %s" % (t[0], t[1]))
 
 
 def usage(msgarg):
   """Print usage and exit."""
   if msgarg:
     sys.stderr.write("error: %s\n" % msgarg)
-  print """\
+  print("""\
     usage:  %s [options] <ELF files>
 
     options:
@@ -601,7 +601,7 @@ def usage(msgarg):
     Notes:
      - arguments are expected to be linked (.so or .exe) but unstripped
 
-    """ % os.path.basename(sys.argv[0])
+    """ % os.path.basename(sys.argv[0]))
   sys.exit(1)
 
 
@@ -650,10 +650,10 @@ def parse_args():
       for isec in insections:
         if isec.startswith(tomatch):
           pruned[isec] = 0
-      if not pruned.keys():
+      if not list(pruned.keys()):
         usage("no interesting sections start with %s" % tomatch)
       u.verbose(1, "sections matching -S arg %s: %s" %
-                (tomatch, " ".join(pruned.keys())))
+                (tomatch, " ".join(list(pruned.keys()))))
       insections = pruned
     elif opt == "-X":
       flag_check_in_symbols = 0

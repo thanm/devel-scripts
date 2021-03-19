@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Run 'dmesg' and post-process timestamps.
 
 Runs 'dmesg' and then rewrite the contained timestamps
@@ -29,8 +29,8 @@ def human_dmesg():
   try:
     uptime = now - timedelta(seconds=int(uptime_diff.split(".")[0]),
                              microseconds=int(uptime_diff.split(".")[1]))
-    print "uptime is"
-    print uptime
+    print("uptime is")
+    print(uptime)
   except IndexError:
     return
   dmesg_data = u.docmdlines("dmesg")
@@ -46,12 +46,12 @@ def human_dmesg():
       microseconds = int(round(nanoseconds * 0.001))
       line = match.groupdict().get("line", "")
       t = uptime + timedelta(seconds=seconds, microseconds=microseconds)
-      print "[%s]%s" % (t.strftime(_datetime_format), line)
+      print("[%s]%s" % (t.strftime(_datetime_format), line))
       matched += 1
     else:
       unmatched += 1
   if unmatched > matched/2:
-    print "matched %d unmatched %d" % (matched, unmatched)
+    print("matched %d unmatched %d" % (matched, unmatched))
 
 # ---------main portion of script -------------
 
