@@ -72,52 +72,6 @@ function remove_btrfs_subvolume() {
   snapshotutil.py rmvol $VNAME
 }
 
-function genfilelists() {
-  prune-android-filelist.pl < filelist > allfiles.txt
-  cat allfiles.txt | egrep '(.+\.cpp$|.+\.cc$|.+\.h$)' > cppfiles.txt
-  cat allfiles.txt | egrep '.+\.c$' > cfiles.txt
-  cat allfiles.txt | egrep '.+\.java$' > jfiles.txt
-  cat allfiles.txt | egrep '.+\.py$' > pyfiles.txt
-  cat allfiles.txt | egrep '.+\.proto$' > protofiles.txt
-  cat cfiles.txt cppfiles.txt | sort > cxxfiles.txt
-  find . -name "*.mk" -print > mkfiles.txt
-}
-
-function agtags () {
-    croot
-    rm -f GPATH GTAGS GRTAGS GSYMS
-    rm -f filelist # force regeneration
-    godir /dev/null > /dev/null
-    genfilelists
-    tmpdir=/tmp/gtags-$$-$RANDOM
-    mkdir $tmpdir
-    grep -v '\$assert.java' filelist | grep -v '^\./external/valgrind/memcheck/tests/' | grep -v '^\./external/pdfium' | grep -v '^\./external/markdown' | grep -v '^\./external/valgrind/main/memcheck/tests/' | filter-out-embedded-spaces.py | nice ionice -c 3 gtags --file - $tmpdir
-    mv $tmpdir/* .
-    rmdir $tmpdir
-}
-
-function agfiles () {
-    croot
-    rm -f filelist # force regeneration
-    godir /dev/null > /dev/null
-    genfilelists
-}
-
-function agmkid () {
-    local HERE=""
-    croot
-    HERE=`pwd`
-    echo "... regenerating filelist"
-    rm -f filelist # force regeneration
-    godir /dev/null > /dev/null
-    genfilelists
-    tr "\n" "\0" < cxxfiles.txt > cxxfiles0.txt
-    echo "... running mkid in $HERE"
-    mkid --files0-from cxxfiles0.txt
-    rm -f cxxfiles0.txt
-    echo "... ID file created in $HERE"
-}
-
 function help_btrfs() {
   echo "Options: "
   echo " showsnapshots.py   --   show subvolumes and snapshots"
