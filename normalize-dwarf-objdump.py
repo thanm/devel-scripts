@@ -59,6 +59,10 @@ pcinfo_attrs = {"DW_AT_low_pc": 1, "DW_AT_high_pc": 1}
 # Untracked DW refs
 untracked_dwrefs = {}
 
+# Line buffer
+linebuf = None
+linebuffered = False
+
 #......................................................................
 
 # Regular expressions to match:
@@ -132,6 +136,130 @@ def munge_attrval(attr, oval, diestart):
   return val
 
 
+def read_line(inf):
+  """Read an input line."""
+  global linebuffered
+  global linebuf
+  if linebuffered:
+    linebuffered = False
+    u.verbose(3, "buffered line is %s" % linebuf)
+    return linebuf
+  line = inf.readline()
+  u.verbose(3, "line is %s" % line.rstrip())
+  return line
+
+
+def unread_line(line):
+  """Unread an input line."""
+  global linebuffered
+  global linebuf
+  u.verbose(3, "unread_line on %s" % line.rstrip())
+  if linebuffered:
+    u.error("internal error: multiple line unread")
+  linebuffered = True
+  linebuf = line
+
+
+def read_die(inf, outf):
+  """Reads in and returns the next DIE."""
+  lines = []
+  indie = False
+  while True:
+    line = read_line(inf)
+    if not line:
+      break
+    m1 = bdiere.match(line)
+    if not indie:
+      if m1:
+        lines.append(line)
+        indie = True
+        continue
+      outf.write(line)
+    else:
+      if m1:
+        unread_line(line)
+        break
+      m2 = indiere.match(line)
+      if not m2:
+        m2 = indie2re.match(line)
+      if not m2:
+        unread_line(line)
+        break
+      lines.append(line)
+  u.verbose(2, "=-= DIE read:")
+  for line in lines:
+    u.verbose(2, "=-= %s" % line.rstrip())
+  return lines
+
+
+def emit_die(lines, outf, origin, diename, diestart):
+  """Emit body of DIE."""
+  # First line
+  m1 = bdiere.match(lines[0])
+  if not m1:
+    u.error("internal error: first line of DIE "
+            "should match bdiere: %s" % lines[0])
+  sp = m1.group(1)
+  depth = m1.group(2)
+  absoff = m1.group(3)
+  rem = m1.group(4)
+  off = compute_reloff(absoff, origin)
+  if flag_strip_offsets:
+    outf.write("%s<%s>:%s\n" % (sp, depth, rem))
+  else:
+    outf.write("%s<%s><%0x>:%s\n" % (sp, depth, off, rem))
+  # Remaining lines
+  for line in lines[1:]:
+    m2 = indiere.match(line)
+    if not m2:
+      m2 = indie2re.match(line)
+    if not m2:
+      u.error("internal error: m2 match failed on attr line")
+    sp1 = m2.group(1)
+    absoff = m2.group(2)
+    sp2 = m2.group(3)
+    attr = m2.group(4)
+    sp3 = m2.group(5)
+    rem = m2.group(6)
+    addend = ""
+    off = compute_reloff(absoff, origin)
+    u.verbose(3, "attr is %s" % attr)
+    # Special sauce if abs origin.
+    if attr == "DW_AT_abstract_origin":
+      m3 = absore.match(line)
+      if m3:
+        absoff = m3.group(1)
+        reloff = compute_reloff(absoff, origin)
+        if reloff in diename:
+          addend = "// " + diename[reloff]
+      else:
+        u.verbose(2, "absore() failed on %s\n", line)
+    # Post-process attr value
+    rem = munge_attrval(attr, rem, diestart)
+    # Emit
+    if flag_strip_offsets:
+      outf.write("%s%s%s:%s%s%s\n" % (sp1, sp2, attr,
+                                      sp3, rem, addend))
+    else:
+      outf.write("%s<%0x>%s%s:%s%s%s\n" % (sp1, off, sp2,
+                                           attr, sp3, rem, addend))
+
+
+def attrval(lines, tattr):
+  """Return the specified attr for this DIE (or empty string if no name)."""
+  for line in lines[1:]:
+    m2 = indiere.match(line)
+    if not m2:
+      m2 = indie2re.match(line)
+    if not m2:
+      u.error("attr match failed for %s" % line)
+    attr = m2.group(4)
+    if attr == tattr:
+      rem = m2.group(6)
+      return rem.strip()
+  return ""
+
+
 def perform_filt(inf, outf):
   """Read inf and filter contents to outf."""
 
@@ -144,15 +272,8 @@ def perform_filt(inf, outf):
   # Origin (starting absolute offset)
   origin = None
 
-  # Most recent DIE offset
-  curoff = -1
-
   # Set to true if output is filtered off
   filtered = False
-
-  # Set to true if we've just seen a comp unit start and need to
-  # check the name for filtering.
-  checkname = False
 
   if flag_compunits:
     u.verbose(1, "Selected compunits:")
@@ -161,96 +282,51 @@ def perform_filt(inf, outf):
 
   # Read input
   while True:
-    line = inf.readline()
-    if not line:
+    dielines = read_die(inf, outf)
+    if not dielines:
       break
-    u.verbose(3, "line is %s" % line)
 
-    # DIE start?
-    m1 = bdiere.match(line)
-    if m1:
-      sp = m1.group(1)
-      depth = m1.group(2)
-      absoff = m1.group(3)
-      rem = m1.group(4)
-      if not origin:
-        origin = absoff
-      off = compute_reloff(absoff, origin)
-      diestart[absoff] = off
-      curoff = off
-      m2 = bdiebodre.match(rem)
-      iscompunit = False
-      if m2:
-        tag = m2.group(1)
-        u.verbose(2, "=-= tag = %s" % tag)
-        if tag == "compile_unit":
-          iscompunit = True
-          if len(flag_compunits) != 0:
-            checkname = True
-      else:
-        if not bdiezre.match(rem):
-          u.error("bdiebodre/bdiezre match failed on: '%s'" % rem)
-      sp = m1.group(1)
-      if not filtered and not iscompunit:
-        if flag_strip_offsets:
-          outf.write("%s<%s>:%s\n" % (sp, depth, rem))
-        else:
-          outf.write("%s<%s><%0x>:%s\n" % (sp, depth, off, rem))
-      if iscompunit:
-        filtered = True
-      continue
+    # Process starting line of DIE
+    line1 = dielines[0]
+    m1 = bdiere.match(line1)
+    if not m1:
+      u.error("internal error: first line of DIE should match bdiere")
+    absoff = m1.group(3)
+    rem = m1.group(4)
+    if not origin:
+      u.verbose(2, "origin set to %s" % absoff)
+      origin = absoff
+    off = compute_reloff(absoff, origin)
+    diestart[absoff] = off
 
-    addend = ""
-
-    # Attr within DIE
-    m2 = indiere.match(line)
-    if not m2:
-      m2 = indie2re.match(line)
-    if m2:
-      sp1 = m2.group(1)
-      absoff = m2.group(2)
-      sp2 = m2.group(3)
-      attr = m2.group(4)
-      sp3 = m2.group(5)
-      rem = m2.group(6)
-      off = compute_reloff(absoff, origin)
-
-      u.verbose(3, "attr is %s" % attr)
-      if attr == "DW_AT_name":
-        name = rem.strip()
-        u.verbose(3, "absoff %s diename[%x] is %s" % (absoff, off, name))
-        filtered = False
-        if checkname:
-          checkname = False
-          if name in flag_compunits:
-            u.verbose(1, "=-= output enabled since %s is in compunits" % name)
-          else:
-            u.verbose(1, "=-= output disabled since %s not in compunits" % name)
-            filtered = True
-        diename[curoff] = name
-      elif attr == "DW_AT_abstract_origin":
-        m3 = absore.match(line)
-        if m3:
-          absoff = m3.group(1)
-          reloff = compute_reloff(absoff, origin)
-          if reloff in diename:
-            addend = "// " + diename[reloff]
-        else:
-          u.verbose(2, "absore() failed on %s\n", line)
-
-      # Post-process attr value
-      rem = munge_attrval(attr, rem, diestart)
-
+    # Handle zero terminators.
+    if bdiezre.match(rem):
       if not filtered:
-        if flag_strip_offsets:
-          outf.write("%s%s%s:%s%s%s\n" % (sp1, sp2, attr,
-                                          sp3, rem, addend))
-        else:
-          outf.write("%s<%0x>%s%s:%s%s%s\n" % (sp1, off, sp2,
-                                               attr, sp3, rem, addend))
+        emit_die(dielines, outf, origin, diename, diestart)
       continue
 
-    outf.write(line)
+    # See what flavor of DIE this is to adjust filtering.
+    m2 = bdiebodre.match(rem)
+    if not m2:
+      u.error("bdiebodre/bdiezre match failed on: '%s'" % rem)
+    tag = m2.group(1)
+    u.verbose(2, "=-= tag = %s" % tag)
+    if flag_compunits and tag == "compile_unit":
+      name = attrval(dielines, "DW_AT_name")
+      if name:
+        if name in flag_compunits:
+          u.verbose(1, "=-= output enabled since %s is in compunits" % name)
+          filtered = False
+        else:
+          u.verbose(1, "=-= output disabled since %s not in compunits" % name)
+          filtered = True
+
+    # Emit die if not filtered
+    if not filtered:
+      u.verbose(2, "=-= emit DIE")
+      emit_die(dielines, outf, origin, diename, diestart)
+    else:
+      u.verbose(2, "=-= flush DIE (filtered): %s" % dielines[0])
 
 
 def perform():
