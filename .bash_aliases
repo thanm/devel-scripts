@@ -1614,11 +1614,13 @@ function emacshash() {
     SETGOROOT=true
   fi
 
-  pushd $WORKROOT
   if [ $SETGOROOT = "true" ]; then
+    pushd $WORKROOT
     GOROOT=`pwd` startemacs $FILES
+    popd
+  else
+    startemacs $FILES
   fi
-  popd
 }
 
 function emacsmod() {
@@ -1649,6 +1651,7 @@ function runalldotbash() {
   local HASH=""
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
   local MYGDB=`which gdb`
+  local TIMESTAMP=`date +%Y%m%d`
 
   echo "note: gdb is $MYGDB"
 
@@ -1697,7 +1700,7 @@ function runalldotbash() {
 
   # Decide where to put the results
   FILE=`echo $GR | tr / _`
-  FILE=${SSDTMP}/tmp/${SCRIPT}.${FILE}.${WORKB}.${HASH}.txt
+  FILE=${SSDTMP}/tmp/${SCRIPT}.${FILE}.${WORKB}.${HASH}.T${TIMESTAMP}.txt
 
   # Echo, then run
   echo "bash $SCRIPT &> $FILE"

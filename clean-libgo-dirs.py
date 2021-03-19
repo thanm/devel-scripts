@@ -37,7 +37,7 @@ def dochdir(thedir):
 
 def do_clean(subdir):
   """Clean this libgo dir."""
-  flavs = (".o", "gox", ".a", ".so", ".lo", ".la")
+  flavs = (".o", "gox", "gox.tmp", ".a", ".so", ".lo", ".la")
   here = os.getcwd()
   dochdir(subdir)
   if flag_dryrun:
