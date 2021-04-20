@@ -1643,8 +1643,69 @@ function emacsmod() {
   startemacs $FILES
 }
 
+function runmakedotbash() {
+  local GR=""
+  local HERE=`pwd`
+  local WHCLANG=`which clang`
+  local WHGCC=`which gcc`
+  
+  GR=`go env GOROOT`
+  if [ $? != 0 ]; then
+    echo "** go env GOROOT failed"
+    return
+  fi
+
+  # Go root set?
+  if [ -z "$MYGOROOT" ]; then
+    echo "warning, MYGOROOT not set"
+  fi
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+  HASH=`git rev-parse --short HEAD`
+
+  # Check spot
+  if [ "$HERE" != "${GR}/src" ]; then
+    echo "** not in \${GOROOT}/src, can't run"
+    return
+  fi
+
+  # Check script
+  SCRIPT=make.bash
+  if [ ! -x ./$SCRIPT ]; then
+    echo "** no executable ./$SCRIPT"
+    return
+  fi
+
+  # Check for C compiler
+  if [ -z "$WHCLANG" ]; then
+    if [ -z "$WHGCC" ]; then
+      echo "** can't locate gcc or clang in path, pleae set CC manually"
+      return
+    fi
+    export CC=gcc
+  else
+    export CC=clang
+  fi
+  echo "... CC set to $CC"
+
+  # Echo, then run
+  echo "bash $SCRIPT"
+  ST=`seconds.py`
+  bash $SCRIPT 
+  RC=$?
+  EN=`seconds.py`
+  EL=`expr $EN - $ST`
+
+  echo "... complete in $EL seconds, return code: $RC"
+}
+
 function runalldotbash() {
-  local SCRIPT="$1"
+  local ARG="$1"
   local GR=""
   local HERE=`pwd`
   local FILE=""
@@ -1652,7 +1713,8 @@ function runalldotbash() {
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
   local MYGDB=`which gdb`
   local TIMESTAMP=`date +%Y%m%d`
-
+  local GOEXP="$GOEXPERIMENT"
+  
   echo "note: gdb is $MYGDB"
 
   if [ "$WORKB" = "(no" ]; then
@@ -1686,11 +1748,16 @@ function runalldotbash() {
   fi
 
   # Select all.bash or race.bash
-  if [ "x$SCRIPT" = "xrace" ]; then
+  SCRIPT=all.bash
+  if [ "x${ARG}" = "xrace" ]; then
     SCRIPT=race.bash
-  else
-    SCRIPT=all.bash
-  fi
+    shift
+    ARG="$1"
+  elif [ "x${ARG}" = "xrun" ]; then
+    SCRIPT=run.bash
+    shift
+    ARG="$1"
+  fi    
     
   # Check script
   if [ ! -x ./$SCRIPT ]; then
@@ -1698,14 +1765,23 @@ function runalldotbash() {
     return
   fi
 
+  # Optionally add -k for run.bash
+  if [ "x${ARG}" = "x-k" ]; then
+    KARG="-k"
+  fi
+
+  if [ ! -z "$GOEXP" ]; then
+     GOEXP=".GOEXP=${GOEXP}"
+  fi
+
   # Decide where to put the results
   FILE=`echo $GR | tr / _`
-  FILE=${SSDTMP}/tmp/${SCRIPT}.${FILE}.${WORKB}.${HASH}.T${TIMESTAMP}.txt
+  FILE=${SSDTMP}/tmp/${SCRIPT}.${FILE}.${WORKB}.${HASH}${GOEXP}.T${TIMESTAMP}.txt
 
   # Echo, then run
-  echo "bash $SCRIPT &> $FILE"
+  echo "bash $SCRIPT $KARG &> $FILE"
   ST=`seconds.py`
-  bash $SCRIPT 1> $FILE 2>&1
+  bash $SCRIPT $KARG 1> $FILE 2>&1
   RC=$?
   EN=`seconds.py`
   EL=`expr $EN - $ST`
