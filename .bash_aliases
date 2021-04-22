@@ -1668,12 +1668,6 @@ function runmakedotbash() {
   fi
   HASH=`git rev-parse --short HEAD`
 
-  # Check spot
-  if [ "$HERE" != "${GR}/src" ]; then
-    echo "** not in \${GOROOT}/src, can't run"
-    return
-  fi
-
   # Check script
   SCRIPT=make.bash
   if [ ! -x ./$SCRIPT ]; then
