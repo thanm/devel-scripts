@@ -1345,6 +1345,8 @@ function gccgotrunkconfig() {
         PREFBASE=$ARGOPT
       elif [ "z${ARG}" = "zdebug" ]; then
         echo '   CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" CFLAGS_FOR_BUILD="-O0 -g" CXXFLAGS_FOR_BUILD="-O0 -g" \' >> $TF
+      elif [ "z${ARG}" = "zlibprofiler" ]; then
+        echo ' LDFLAGS_FOR_BUILD="-lprofiler" \' >> $TF
       elif [ "z${ARG}" = "zdwarf5" ]; then
         echo ' CFLAGS="-g -gdwarf-5" CXXFLAGS="-g -gdwarf-5" CFLAGS_FOR_BUILD="-g -gdwarf-5" CXXFLAGS_FOR_BUILD="-g -gdwarf-5" \' >> $TF
       elif [ "z${ARG}" = "zcxx98" ]; then
