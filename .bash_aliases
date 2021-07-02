@@ -1684,8 +1684,10 @@ function runmakedotbash() {
       return
     fi
     export CC=gcc
+    export CXX=g++
   else
     export CC=clang
+    export CXX=clang++
   fi
   echo "... CC set to $CC"
 
