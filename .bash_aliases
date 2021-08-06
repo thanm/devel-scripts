@@ -1646,6 +1646,7 @@ function emacsmod() {
 }
 
 function runmakedotbash() {
+  local MBARGS="$*"
   local GR=""
   local HERE=`pwd`
   local WHCLANG=`which clang`
@@ -1692,9 +1693,9 @@ function runmakedotbash() {
   echo "... CC set to $CC"
 
   # Echo, then run
-  echo "bash $SCRIPT"
+  echo "bash $SCRIPT $MBARGS"
   ST=`seconds.py`
-  bash $SCRIPT 
+  bash $SCRIPT $MBARGS
   RC=$?
   EN=`seconds.py`
   EL=`expr $EN - $ST`
