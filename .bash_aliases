@@ -646,7 +646,6 @@ function run_git_meld_hash() {
   git difftool -y -d -t ${GRDIFF} $HASH1 $HASH2 $extr
 }
 
-
 function run_git_meld_branch() {
   local FILES=$*
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
@@ -679,6 +678,29 @@ function run_git_meld_branch() {
 
   echo git difftool -y -d -t ${GRDIFF} master $WORKB $EXTRA
   git difftool -y -d -t ${GRDIFF} master $WORKB $EXTRA
+}
+
+function run_git_log_oneline_branch() {
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+
+  # Determine work branch
+  if [ -z "$WORKB" ]; then
+    echo "unable to determine work branch, output of 'git branch' is:"
+    git branch
+    return
+  fi
+  if [ "$WORKB" = "(no" ]; then
+    echo "are you rebasing? unable to proceed; output of git branch is:"
+    git branch
+    return
+  fi	
+  if [ "$WORKB" = "master" ]; then
+    echo "current branch is master, please check out work branch"
+    return
+  fi
+
+  echo git log --oneline master..${WORKB}
+  git log --oneline master..${WORKB}
 }
 
 function run_git_show_local_branch_status() {
@@ -1920,6 +1942,7 @@ alias gcaX="echo git commit --amend --reset-author; git commit --amend --reset-a
 alias gcar="echo git commit --amend --reuse-message=HEAD ; git commit --amend --reuse-message=HEAD"
 alias gs="git status"
 alias glo="git log --oneline"
+alias glob="run_git_log_oneline_branch"
 alias glf='git log --name-only'
 alias gld='git log -p'
 alias gitshowhead="git show -s --oneline HEAD"
