@@ -92,7 +92,7 @@ def process_commit(idx, branchname, githash, comment, summaryf):
   tag = ""
   if flag_tag:
     tag = ".tag=%s" % flag_tag
-  fn = "/tmp/item%d.branch%s%s.commit%s.txt" % (idx, branchname, tag, githash)
+  fn = "/tmp/item%d.branch%s%s.commit=%s.txt" % (idx, branchname, tag, githash)
   if flag_dryrun:
     u.verbose(0, "<dryrun: run %s for %s to %s>" % (flag_script_to_run,
                                                     githash, fn))
@@ -130,11 +130,12 @@ def dotestaction(action, githash, outf, idx, summaryf):
   """Perform a test action, writing results to outf."""
   global num_failures
   u.verbose(0, "starting %s run for %s" % (action, githash))
+  outf.write("// --------------- test %s\n" % action)
   tf = tempfile.NamedTemporaryFile(mode="w", delete=True)
   status = u.docmderrout(action, tf.name, True)
   if status != 0:
     u.verbose(0, "warning: '%s' run failed for commit %s" % (action, githash))
-    summaryf.write("%d: failed action: %s\n" % (idx, action))
+    summaryf.write("%d: hash %s failed action: %s\n" % (idx, githash, action))
     num_failures += 1
   try:
     with open(tf.name, "r") as rf:
@@ -195,8 +196,8 @@ def perform():
 
   # Emit index file
   n = len(files_emitted) + 1
-  outf.write("Files emitted:\n\n")
-  outf.write(" ".join(files_emitted))
+  outf.write("\nFiles emitted:\n\n")
+  outf.write("\n".join(files_emitted))
   outf.write("\n\nBranch log:\n\n")
   u.verbose(1, "index diff cmd hashes: %s %s" % (firsthash, lasthash))
   outf.write("\n")
@@ -223,6 +224,7 @@ def usage(msgarg):
     -d    increase debug msg verbosity level
     -m    run make.bash instead of all.bash
     -n    don't run make.bash or all.bash
+    -S X  run script X (e.g. "bash X") instead of all.bash
     -p P  run 'go test P' for package P at each commit
     -D    dryrun mode (echo commands but do not execute)
 
@@ -244,7 +246,7 @@ def parse_args():
   global flag_echo, flag_dryrun, flag_tag, flag_script_to_run, flag_pkgtests
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dmneDp:t:")
+    optlist, args = getopt.getopt(sys.argv[1:], "dmneDp:t:S:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -259,6 +261,11 @@ def parse_args():
       flag_script_to_run = "make.bash"
     elif opt == "-n":
       flag_script_to_run = None
+    elif opt == "-S":
+      if not os.path.exists(arg):
+        u.warning("can't access script %s, ignored for -S" % arg)
+      else:
+        flag_script_to_run = arg
     elif opt == "-D":
       u.verbose(0, "+++ dry run mode")
       flag_dryrun = True
