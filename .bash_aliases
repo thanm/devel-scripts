@@ -1577,7 +1577,14 @@ function emacswithgoroot() {
         done
       fi
     fi
-  fi
+  elif [ "$DOBRANCH" = "COMMIT" ]; then
+    RFILES=`git log -1 --name-only --oneline $WHICH | tail +2`
+    for RF in $RFILES
+    do
+      FILES="$FILES ${WORKROOT}/${RF}"
+    done
+    WHICH=""
+  fi    
   FILES="$FILES $WHICH"
 
   # Which repo?
@@ -1603,6 +1610,11 @@ function emacswithgoroot() {
 function emacsbranched() {
   local WHICH="$*"
   emacswithgoroot BRANCH $WHICH
+}
+
+function emacscommit() {
+  local WHICH="$*"
+  emacswithgoroot COMMIT $WHICH
 }
 
 function emacsgoroot() {
@@ -1862,6 +1874,7 @@ alias e=startemacsclient
 alias ge=startemacs
 alias emgr=emacsgoroot
 alias embr=emacsbranched
+alias emcm=emacscommit
 if [ "x${OSFLAVOR}" = "xDarwin" ]; then
   alias psaxu='ps -ef'
   alias psaxuw='ps -efww'
