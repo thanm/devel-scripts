@@ -1835,7 +1835,7 @@ function git_track_remote_branch() {
 
 function setmousepropsfunction() {
   local SENS=3
-  local ACCEL=1
+  local ACCEL=0.5
 
   if [ -z "$MOUSENAME" ]; then
     echo "** failed -- MOUSENAME env var unset"

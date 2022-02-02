@@ -160,16 +160,37 @@
                                   tab-width 4
                                   indent-tabs-mode f)))
 ;;
+;; Project setup (needed for eglot to work ok)
+;;
+(require 'project)
+(defun project-find-go-module (dir)
+  (when-let ((root (locate-dominating-file dir "go.mod")))
+    (cons 'go-module root)))
+(cl-defmethod project-root ((project (head go-module)))
+  (cdr project))
+(add-hook 'project-find-functions #'project-find-go-module)
+(defun disable-flymake()
+  (message "About to disable flymake")
+  (flymake-mode)
+  (message "Finished call to flymake-mode"))
+;;
+;; Turn off flymake mode when in eglot
+;;
+(add-hook 'eglot-managed-mode-hook (lambda ()
+  (remove-hook 'flymake-diagnostic-functions 'eglot-flymake-backend)
+  (flymake-eslint-enable)))
+;;
 ;; Go setup
 ;;
+;;(setq gofmt-command "goimports")
 (require 'go-mode-autoloads)
+(add-hook 'before-save-hook 'gofmt-before-save)
 (add-hook 'go-mode-hook (lambda ()
                           (setq-default)
                           (load "go-guru")
                           (setq tab-width 4
                                 standard-indent 2
                                 indent-tabs-mode 1)))
-
 ;;
 ;; Emacs server/client setup. For linux, set server name based on
 ;; DISPAY value, so that we can have separate emacs servers for the
@@ -247,6 +268,7 @@
 ;; Set up before-save hooks to format buffer and add/delete imports.
 ;; Make sure you don't have other gofmt/goimports hooks enabled.
 (defun lsp-go-install-save-hooks ()
+  (lsp-ui-doc-mode nil)
   (add-hook 'before-save-hook #'lsp-format-buffer t t)
   (add-hook 'before-save-hook #'lsp-organize-imports t t))
 (add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
