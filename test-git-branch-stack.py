@@ -5,7 +5,7 @@ For a given development branch, do an all.bash test for each commit on the
 branch, storing results in. Example from git log --oneline for hypothetical
 development branch 'mybranch':
 
-  ca3b66ca8d (HEAD -> mybranch) finalthing
+  ca3b66ca8d (HEAD -> mybranch) final-thing
   51df6b49da anotherthing
   2b3ddf5180 firstthing
   7fa195c1b9 (origin/master, origin/HEAD, master) unrelated
