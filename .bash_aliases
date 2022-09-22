@@ -806,6 +806,33 @@ function set_git_upstream_tracking_branch_to_master() {
   set_git_upstream_tracking_branch master
 }
 
+function peekstash() {
+  local SLN=$1
+  SL=`git stash list 2>&1`
+  if [ $? != 0 ]; then
+    echo "** git stash list failed: $SL"
+    return
+  fi
+  if [ "$SL" == "" ]; then
+    echo "no stash entries"
+    return
+  fi
+  if [ "$SLN" = "" ]; then
+    SLN=`git stash list | wc -l`
+  fi	     
+  if [ $SLN -gt 10 ]; then
+    SLN=10
+  fi
+  I=0
+  while [ $I -lt $SLN ]; do
+    echo ""
+    echo "++ stash@{$I} ++"
+    echo ""
+    git diff -1 --name-only stash@{$I}^ stash@{$I}
+    I=`expr $I + 1`
+  done     
+}
+
 function prependToPathIfNotAlreadyPresent () {
   local D="$1"
   case ":$PATH:" in
@@ -1150,7 +1177,7 @@ function setgopath() {
   echo "GOPATH set to $d"
   export GOPATH=$d
 
-  appendToPathIfNotAlreadyPresent $GOPATH/bin
+  prependToPathIfNotAlreadyPresent $GOPATH/bin
 }
 
 function unsetgopath() {
@@ -1788,6 +1815,10 @@ function runalldotbash() {
     ARG="$1"
   elif [ "x${ARG}" = "xrun" ]; then
     SCRIPT=run.bash
+    shift
+    ARG="$1"
+  elif [ "x${ARG}" = "xcover" ]; then
+    SCRIPT=cover.bash
     shift
     ARG="$1"
   fi    

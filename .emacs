@@ -51,6 +51,11 @@
         ((looking-at "\\s\)") (forward-char 1) (backward-list 1))
         (t (self-insert-command (or arg 1)))))
 ;;
+;; buffer move
+;;
+(autoload 'buf-move-up "buffer-move" nil t)
+(autoload 'buf-move-down "buffer-move" nil t)
+;;
 ;; gid
 ;;
 (autoload 'gid "idutils" nil t)
@@ -100,6 +105,10 @@
 ;;
 (define-key esc-map "\t" 'indent-relative)
 ;;
+;; Bell
+;;
+(setq visible-bell 1)
+;;
 ;; Add an exit hook that asks for confirmation if there is
 ;; more than one file buffer.
 ;;
@@ -135,10 +144,19 @@
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
 ;;
-;; global/gtags setup
-;; sudo apt-get install global
+;; No startup message please
 ;;
 (setq inhibit-startup-message t)
+;;
+;; Get rid of this annoying warning
+;;
+(defun suppress-undo-discard-warning ()
+  "Suppress warnings about discarding undo info (for large files)."
+  (interactive "p")
+  (add-to-list 'warning-suppress-types '(undo discard-info)))
+;;
+;; global/gtags setup
+;; sudo apt-get install global
 ;;
 (cond
  ((string-equal system-type "gnu/linux")
@@ -169,10 +187,6 @@
 (cl-defmethod project-root ((project (head go-module)))
   (cdr project))
 (add-hook 'project-find-functions #'project-find-go-module)
-(defun disable-flymake()
-  (message "About to disable flymake")
-  (flymake-mode)
-  (message "Finished call to flymake-mode"))
 ;;
 ;; Turn off flymake mode when in eglot
 ;;
