@@ -34,6 +34,12 @@ flag_dumpdwarf = False
 # Show raw insn
 flag_showraw = False
 
+# Use LLVM objdump
+flag_llvmobjdump = True
+
+# Dumper
+objdumper = "llvm-objdump-13"
+
 # Begin-DIE preamble
 bdiere = re.compile(r"^\s*\<\d+\>\<(\S+)\>\:\s*Abbrev\sNumber\:"
                     r"\s+(\d+)\s+\((\S+)\)\s*$")
@@ -139,7 +145,7 @@ def grabaddrsize(line, func, addr):
 def has_dynamic_section(tgt):
   """Figure out if a given executable has a dynamic section."""
   u.verbose(1, "running objdump -h %s" % tgt)
-  lines = u.docmdlines("objdump -h %s" % tgt)
+  lines = u.docmdlines("%s -h %s" % (objdumper, tgt))
   dreg = re.compile(r"^\s*\d+\s+\.dynamic\s.+$")
   for line in lines:
     m = dreg.match(line)
@@ -169,7 +175,7 @@ def grab_addrs_from_symtab(func, addr, tgt):
   for flav in flavs:
     u.verbose(1, "looking for %s in output of "
               "objdump %s %s" % (what(func, addr), flav, tgt))
-    lines = u.docmdlines("objdump %s %s" % (flav, tgt))
+    lines = u.docmdlines("%s %s %s" % (objdumper, flav, tgt))
     hexstaddr = None
     hexsize = None
     for line in lines:
@@ -200,13 +206,15 @@ def disas(func, addr, tgt):
   for ii in range(0, len(staddrs)):
     staddr = staddrs[ii]
     enaddr = enaddrs[ii]
+    u.verbose(1, "... disassembling: "
+              "--start-address=0x%x --stop-address=0x%x" % (staddr, enaddr))
     if staddr == 0:
       u.verbose(0, "... could not find %s in "
                 "output of objdump, skipping" % what(func, addr))
     else:
-      cmd = ("objdump%s --wide -dl "
+      cmd = ("%s%s --wide -dl "
              "--start-address=0x%x "
-             "--stop-address=0x%x %s" % (shrw, staddr, enaddr, tgt))
+             "--stop-address=0x%x %s" % (objdumper, shrw, staddr, enaddr, tgt))
       if flag_dwarf_cu and not flag_dryrun:
         lines = u.docmdlines(cmd)
         dodwarf(lines, tgt)
@@ -538,6 +546,7 @@ def usage(msgarg):
     -W X  read and incorporate DWARF from compile unit X
           (if X is ".", read all compile units)
     -Z    dump dwarf DIE chain
+    -L    don't use LLVM objdump
     -R    show raw instruction bytes
 
     Example usage:
@@ -552,9 +561,10 @@ def usage(msgarg):
 def parse_args():
   """Command line argument parsing."""
   global flag_echo, flag_dryrun, flag_dwarf_cu, flag_dumpdwarf, flag_showraw
+  global flag_llvmobjdump
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "deDa:f:m:W:ZR")
+    optlist, args = getopt.getopt(sys.argv[1:], "deDa:f:m:W:ZRL")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
@@ -571,6 +581,9 @@ def parse_args():
       flag_echo = True
     elif opt == "-e":
       flag_echo = True
+    elif opt == "-L":
+      flag_llvmobjdump = False
+      objdumper = "objdump"
     elif opt == "-R":
       flag_showraw = True
     elif opt == "-f":

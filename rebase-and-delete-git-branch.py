@@ -6,7 +6,6 @@ Given a private branch XXX, runs the following sequence of commands:
   git checkout master
   git pull
   git checkout XXX
-  git branch --set-upstream-to=origin/master XXX
   git rebase
   git checkout master
   git branch -d XXX
@@ -36,6 +35,9 @@ flag_branches = {}
 # Select all branches
 flag_allbranches = False
 
+# Main branch name
+flag_mainbranch = "master"
+
 
 def docmd(cmd):
   """Execute a command."""
@@ -52,7 +54,7 @@ def doscmd(cmd, nf=None):
     sys.stderr.write("executing: " + cmd + "\n")
   if flag_dryrun:
     return
-  u.doscmd(cmd, nf)
+  return u.doscmd(cmd, nf)
 
 
 def visit_branch(b):
@@ -65,9 +67,17 @@ def visit_branch(b):
   if not lines:
     u.warning("no upstream branch set for branch %s, skipping" % b)
     return
+  if lines[0] != "origin/" + flag_mainbranch:
+    u.warning("non-%s upstream branch of %s set for branch %s, skipping" % (flag_mainbranch, lines[0], b))
+    return
 
-  docmd("git rebase")
-  docmd("git checkout master")
+  rebst = doscmd("git rebase", True)
+  if not rebst:
+    # rebase failed, back out
+    u.warning("rebase failed...")
+    docmd("git rebase --abort")
+    return
+  docmd("git checkout %s" % flag_mainbranch)
   doscmd("git branch -d %s" % b, True)
 
 
@@ -81,14 +91,14 @@ def perform():
   reg = re.compile(r"^[\+\*\s]*(\S+)\s*$")
   # Interpret output of git branch
   branches = {}
-  for l in lines:
-    u.verbose(3, "line is: =%s=" % l)
-    m = reg.match(l)
+  for line in lines:
+    u.verbose(3, "line is: =%s=" % line)
+    m = reg.match(line)
     if not m:
       u.error("internal error: unable to match "
-              "'git branch' on: %s" % l)
+              "'git branch' on: %s" % line)
     bname = m.group(1)
-    if bname == "master":
+    if bname == flag_mainbranch:
       continue
     u.verbose(2, "capturing local branch: %s" % bname)
     branches[bname] = 1
@@ -100,8 +110,8 @@ def perform():
                 "in output of 'git branch'" % b)
   if flag_allbranches:
     flag_branches = branches
-  u.verbose(1, "pulling master")
-  docmd("git checkout master")
+  u.verbose(1, "pulling %s" % flag_mainbranch)
+  docmd("git checkout %s" % flag_mainbranch)
   docmd("git pull")
   for b in flag_branches:
     visit_branch(b)
@@ -116,10 +126,11 @@ def usage(msgarg):
     usage:  %s [options]
 
     options:
-    -a    look for all branches other than master / release
+    -a    look for all branches other than main/master/release
     -e    echo commands before executing
     -d    increase debug msg verbosity level
     -D    dryrun mode (echo commands but do not execute)
+    -M x  main branch name is 'x'
 
     """ % me)
   sys.exit(1)
@@ -127,17 +138,17 @@ def usage(msgarg):
 
 def parse_args():
   """Command line argument parsing."""
-  global flag_echo, flag_dryrun, flag_allbranches
+  global flag_echo, flag_dryrun, flag_allbranches, flag_mainbranch
 
   try:
-    optlist, args = getopt.getopt(sys.argv[1:], "dDea")
+    optlist, args = getopt.getopt(sys.argv[1:], "dDeaM:")
   except getopt.GetoptError as err:
     # unrecognized option
     usage(str(err))
   for b in args:
     flag_branches[b] = 1
 
-  for opt, _ in optlist:
+  for opt, optarg in optlist:
     if opt == "-d":
       u.increment_verbosity()
     elif opt == "-D":
@@ -145,6 +156,9 @@ def parse_args():
       flag_echo = True
     elif opt == "-e":
       flag_echo = True
+    elif opt == "-M":
+      u.verbose(0, "main branch set to '%s'" % optarg)
+      flag_mainbranch = optarg
     elif opt == "-a":
       flag_allbranches = True
       if args:
@@ -152,7 +166,6 @@ def parse_args():
   if not flag_branches and not flag_allbranches:
     usage("supply a branch name as arg, or use -a option")
 
-#
 #......................................................................
 #
 # Main portion of script

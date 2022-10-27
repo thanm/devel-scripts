@@ -5,7 +5,7 @@ For a given development branch, do an all.bash test for each commit on the
 branch, storing results in. Example from git log --oneline for hypothetical
 development branch 'mybranch':
 
-  ca3b66ca8d (HEAD -> mybranch) final-thing
+  ca3b66ca8d (HEAD -> mybranch) finalthing
   51df6b49da anotherthing
   2b3ddf5180 firstthing
   7fa195c1b9 (origin/master, origin/HEAD, master) unrelated
@@ -92,7 +92,7 @@ def process_commit(idx, branchname, githash, comment, summaryf):
   tag = ""
   if flag_tag:
     tag = ".tag=%s" % flag_tag
-  fn = "/tmp/item%d.branch%s%s.commit=%s.txt" % (idx, branchname, tag, githash)
+  fn = "/tmp/item%d.branch%s%s.commit%s.txt" % (idx, branchname, tag, githash)
   if flag_dryrun:
     u.verbose(0, "<dryrun: run %s for %s to %s>" % (flag_script_to_run,
                                                     githash, fn))
@@ -130,12 +130,11 @@ def dotestaction(action, githash, outf, idx, summaryf):
   """Perform a test action, writing results to outf."""
   global num_failures
   u.verbose(0, "starting %s run for %s" % (action, githash))
-  outf.write("// --------------- test %s\n" % action)
   tf = tempfile.NamedTemporaryFile(mode="w", delete=True)
   status = u.docmderrout(action, tf.name, True)
   if status != 0:
     u.verbose(0, "warning: '%s' run failed for commit %s" % (action, githash))
-    summaryf.write("%d: hash %s failed action: %s\n" % (idx, githash, action))
+    summaryf.write("%d: failed action: %s\n" % (idx, action))
     num_failures += 1
   try:
     with open(tf.name, "r") as rf:
@@ -196,8 +195,8 @@ def perform():
 
   # Emit index file
   n = len(files_emitted) + 1
-  outf.write("\nFiles emitted:\n\n")
-  outf.write("\n".join(files_emitted))
+  outf.write("Files emitted:\n\n")
+  outf.write(" ".join(files_emitted))
   outf.write("\n\nBranch log:\n\n")
   u.verbose(1, "index diff cmd hashes: %s %s" % (firsthash, lasthash))
   outf.write("\n")

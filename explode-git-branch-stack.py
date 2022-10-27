@@ -170,6 +170,9 @@ def perform():
   brnreg = re.compile(r"^## (\S+)\.\.(\S+) \[ahead (\d+)\]\s*$")
   m = brnreg.match(lines[0])
   if not m:
+    brnreg = re.compile(r"^## (\S+)\.\.(\S+) \[ahead (\d+), behind.+\]\s*$")
+    m = brnreg.match(lines[0])
+  if not m:
     u.error("can't pattern match output of git status -sb: %s" % lines[0])
   branchname = m.group(1).strip(".")
   commits = int(m.group(3))

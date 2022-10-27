@@ -28,6 +28,7 @@ and annotated (unless disabled).
 """
 
 import getopt
+import locale
 import os
 import re
 import sys
@@ -144,7 +145,9 @@ def read_line(inf):
     linebuffered = False
     u.verbose(3, "buffered line is %s" % linebuf)
     return linebuf
-  line = inf.readline()
+  rawline = inf.readline()
+  encoding = locale.getdefaultlocale()[1]
+  line = rawline.decode(encoding)
   u.verbose(3, "line is %s" % line.rstrip())
   return line
 
@@ -174,7 +177,7 @@ def read_die(inf, outf):
         lines.append(line)
         indie = True
         continue
-      outf.write(line)
+      outf.write(line.encode("utf-8"))
     else:
       if m1:
         unread_line(line)
@@ -205,9 +208,10 @@ def emit_die(lines, outf, origin, diename, diestart):
   rem = m1.group(4)
   off = compute_reloff(absoff, origin)
   if flag_strip_offsets:
-    outf.write("%s<%s>:%s\n" % (sp, depth, rem))
+    msg = "%s<%s>:%s\n" % (sp, depth, rem)
   else:
-    outf.write("%s<%s><%0x>:%s\n" % (sp, depth, off, rem))
+    msg = "%s<%s><%0x>:%s\n" % (sp, depth, off, rem)
+  outf.write(msg.encode("utf-8"))
   # Remaining lines
   for line in lines[1:]:
     m2 = indiere.match(line)
@@ -238,12 +242,12 @@ def emit_die(lines, outf, origin, diename, diestart):
     rem = munge_attrval(attr, rem, diestart)
     # Emit
     if flag_strip_offsets:
-      outf.write("%s%s%s:%s%s%s\n" % (sp1, sp2, attr,
-                                      sp3, rem, addend))
+      msg = "%s%s%s:%s%s%s\n" % (sp1, sp2, attr,
+                                 sp3, rem, addend)
     else:
-      outf.write("%s<%0x>%s%s:%s%s%s\n" % (sp1, off, sp2,
-                                           attr, sp3, rem, addend))
-
+      msg = "%s<%0x>%s%s:%s%s%s\n" % (sp1, off, sp2,
+                                      attr, sp3, rem, addend)
+    outf.write(msg.encode("utf-8"))
 
 def attrval(lines, tattr):
   """Return the specified attr for this DIE (or empty string if no name)."""
