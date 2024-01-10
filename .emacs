@@ -44,6 +44,10 @@
   (interactive "P")
   (re-search-forward "[ \t]+" nil t)
   (replace-match "" nil nil))
+(defun make-frame-w80h40 (a)
+  "Make frame with width 80 and height 40"
+  (interactive "P")
+  (make-frame '((width . 80) (height . 40))))
 (defun skip-to-matching-paren (arg)
   "Skip to matching paren if on paren or insert \\[skip-to-matching-paren]"
   (interactive "p")

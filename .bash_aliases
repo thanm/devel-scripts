@@ -754,6 +754,28 @@ function newbranch() {
   fi
 }
 
+function replace_github_access_token_in_remote() {
+  local TOK="$1"
+  local URL=""
+  local SITE=""
+  local SPLIT=""
+
+  if [ ! -d .git ]; then
+    echo "** no .git dir here"
+    return
+  fi
+  if [ "x${TOK}" = "x" ]; then
+    echo "** supply name of new token as argument"
+    return
+  fi
+  URL=`git remote -v | head -1 | expand | tr -s " " | cut -f2 -d" "`
+  SITE=`echo $URL | cut -f3- -d/`
+  SPLIT=`echo $URL | cut -f2 -d@`
+
+  echo command is:
+  echo git remote set-url origin https://thanm:${TOK}@${SPLIT}
+}
+  
 function set_git_upstream_tracking_branch() {
   local UPSTREAMBR="$1"
   local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
@@ -806,8 +828,9 @@ function set_git_upstream_tracking_branch_to_master() {
   set_git_upstream_tracking_branch master
 }
 
-function peekstash() {
-  local SLN=$1
+function peekstashimpl() {
+  local FORM=$1
+  local SLN=$2
   SL=`git stash list 2>&1`
   if [ $? != 0 ]; then
     echo "** git stash list failed: $SL"
@@ -829,8 +852,19 @@ function peekstash() {
     echo "++ stash@{$I} ++"
     echo ""
     git diff -1 --name-only stash@{$I}^ stash@{$I}
+    if [ $FORM = "long" ]; then
+      git diff stash@{$I}^ stash@{$I}
+    fi      
     I=`expr $I + 1`
   done     
+}
+
+function peekstash() {
+  peekstashimpl short $*
+}
+
+function peekstashlong() {
+  peekstashimpl long $*
 }
 
 function prependToPathIfNotAlreadyPresent () {
@@ -976,16 +1010,23 @@ function svnaddexec() {
   done
 }
 
-function gotoolcompile() {
+function trygobuildcmd() {
   local ARGS="$*"
-  local goarch=`go env | fgrep GOARCH | cut -f2 -d\"`
-  local goos=`go env | fgrep GOOS | cut -f2 -d\"`
+  local thispkg=`go list -f '{{.Name}}'`
+  local here=`pwd`
+  local base=`basename $here`
 
-  # For some reason "go tool compile" is not smart enough
-  # to add -I $GOPATH/$GOOS_$GOOARCH to the command line
-  # automatically... here we do so by hand.
-  echo go tool compile -I $GOPATH/pkg/${goos}_${goarch} $ARGS
-  go tool compile -I $GOPATH/pkg/${goos}_${goarch} $ARGS
+  if [ "$thispkg" != "main" ]; then
+    echo "can't procede; got $thispkg and not main"
+    return
+  fi
+  echo rm -f /tmp/${base}.exe
+  rm -f /tmp/${base}.exe
+  echo go build $ARGS -o /tmp/${base}.exe .
+  go build $ARGS -o /tmp/${base}.exe .
+  if [ $? != 0 ]; then
+    echo "*** build failed"
+  fi	 
 }
 
 function warngodirs() {
@@ -1121,7 +1162,6 @@ function unsetgoroot() {
   unset MYGOROOT
   echo "Unsetting GOROOT_BOOTSTRAP"
   unset GOROOT_BOOTSTRAP
-
 }
 
 function setgobootstrapifneeded() {
@@ -1673,9 +1713,9 @@ function emacshash() {
 
   WORKROOT=`git rev-parse --show-toplevel`
 
-  if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
-    SETGOROOT=true
-  fi
+  #if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
+  SETGOROOT=true
+  #fi
 
   if [ $SETGOROOT = "true" ]; then
     pushd $WORKROOT
@@ -1761,7 +1801,29 @@ function runmakedotbash() {
   EN=`seconds.py`
   EL=`expr $EN - $ST`
 
+  # toolstash save if ok
+  if [ $RC = 0 ]; then
+    echo toolstash save
+    toolstash save
+  fi	      
+
   echo "... complete in $EL seconds, return code: $RC"
+}
+
+function runalldotbashgoexperiment() {
+  local ARG="$1"
+  
+  # Make sure this is a valid experiment.
+  GOEXPERIMENT=${ARG} go version 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "*** unknown experiment ${ARG} -- bailing"
+    return
+  fi
+
+  echo "First run with GOEXPERIMENT=${ARG}"
+  GOEXPERIMENT=${ARG} runalldotbash
+  echo "Second run with GOEXPERIMENT=no${ARG}"
+  GOEXPERIMENT=no${ARG} runalldotbash 
 }
 
 function runalldotbash() {
@@ -1850,8 +1912,16 @@ function runalldotbash() {
   EN=`seconds.py`
   EL=`expr $EN - $ST`
 
+  # toolstash save if ok
+  if [ $RC = 0 ]; then
+    echo toolstash save
+    toolstash save
+  fi	      
+
   echo "... complete in $EL seconds, return code: $RC"
   startemacs $FILE
+
+
 }
 
 function ge_no_aslr() {
@@ -1876,6 +1946,57 @@ function git_track_remote_branch() {
   git branch --track $B $RB
 }
 
+function change_git_branch_to_tag() {
+  local BRANCHES="$*"
+  local B=""
+  
+  for B in $BRANCHES
+  do
+    change_git_branch_to_tag_single $B
+  done
+}
+ 
+function change_git_branch_to_tag_single() {
+  local BRANCH="$1"
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local DOLLAR="$"
+  local HAVETAG=`git tag --list $BRANCH`
+  local HAVEBRANCH=`git branch -l $BRANCH`
+
+  if [ -z "$HAVEBRANCH" ]; then
+    echo "error: can't change locate branch with name $BRANCH"
+    return
+  fi
+ 
+  if [ "$WORKB" = "$BRANCH" ]; then
+    echo "error: can't change current branch to tag"
+    return
+  fi
+
+  if [ "$HAVETAG" = "$BRANCH" ]; then
+    echo "error: tag $HAVETAG already exists"
+    return
+  fi
+
+  echo "Converting $BRANCH from branch to tag."
+  git tag $BRANCH $BRANCH
+  git branch -D $BRANCH
+}
+
+function show_prunable_git_mailed_tags() {
+  local B=`git branch | cut -c3-`
+  local TAGS=`git tag --list | fgrep .mailed`
+  for T in $TAGS
+  do
+    TB=`echo $T | cut -f1 -d.`
+    echo $B | tr " " "\n" | fgrep -q -x $TB
+    if [ $? != 0 ]; then
+      echo $T
+    fi   
+  done
+  #echo $B
+}
+
 function setmousepropsfunction() {
   local SENS=3
   local ACCEL=0.5
@@ -1896,6 +2017,40 @@ function setmousepropsfunction() {
   xinput set-prop "$MOUSENAME" 'Coordinate Transformation Matrix' $SENS 0 0 0 $SENS 0 0 0 1
   xinput set-prop "$MOUSENAME" 'libinput Accel Speed' $ACCEL
 
+}
+
+function fix_prefer_deja_to_noto() {
+  # See https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1028643#26
+  #
+  #For anyone who is not super happy with this change from DejaVu to Noto
+  #
+  #I just did this to revert it:
+  #
+  #1. Create a file called /etc/fonts/conf.d/50-prefer-dejavu.conf
+  #2. Add the following:
+  cat > /tmp/50-prefer-dejavu.conf << EOF
+<fontconfig>
+<alias>
+    <family>monospace</family>
+    <prefer>
+        <family>DejaVu Sans Mono</family>
+    </prefer>
+</alias>
+<alias>
+    <family>sans</family>
+    <prefer>
+        <family>DejaVu Sans Book</family>
+    </prefer>
+</alias>
+<alias>
+    <family>serif</family>
+    <prefer>
+        <family>DejaVu Serif Book</family>
+    </prefer>
+</alias>
+</fontconfig>
+EOF
+  # 3. Save the file and run fc-cache -r
 }
 
 #......................................................................
@@ -1969,6 +2124,7 @@ alias bfhelp=help_btrfs
 # Python
 alias py34=python3.4
 alias android_python_lint=pep8
+alias pylint=pycodestyle
 
 # Git
 alias gwts="git worktree list"
