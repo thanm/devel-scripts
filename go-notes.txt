@@ -1,0 +1,279 @@
+
+----------------------------
+
+Build different packages with different flags:
+
+ go build -gcflags="io=-m" -gcflags="bytes=-m=2" ~/hello.go
+ 
+
+
+----------------------------
+
+  Use "go list" to see what would get built:
+
+  % cd $GOROOT/src/cmd/compile/internal/gc
+  % go list -f {{.GoFiles}} .
+  [alg.go algkind_string.go align.go bexport.go bimport.go bitset.go builtin.go bv.go class_string.go closure.go const.go dcl.go dump.go dwinl.go embed.go esc.go escape.go export.go fmt.go gen.go go.go gsubr.go iexport.go iimport.go init.go initorder.go inl.go lex.go main.go mapfile_mmap.go mpfloat.go mpint.go noder.go obj.go op_string.go order.go pgen.go phi.go plive.go pprof.go racewalk.go range.go reflect.go scc.go scope.go select.go sinit.go ssa.go subr.go swt.go syntax.go timings.go trace.go typecheck.go types.go types_acc.go universe.go unsafe.go util.go walk.go]
+
+  % GOOS=Windows go list -f {{.GoFiles}} debug/dwarf
+  [attr_string.go buf.go class_string.go const.go entry.go line.go open.go tag_string.go type.go typeunit.go unit.go]
+  %
+
+  Use "go list" to see all imports:
+
+  % go list -f {{.Imports}}
+  [bufio bytes cmd/compile/internal/logopt cmd/compile/internal/ssa cmd/compile/internal/syntax cmd/compile/internal/types cmd/internal/bio cmd/internal/dwarf cmd/internal/gcprog cmd/internal/goobj cmd/internal/obj cmd/internal/obj/x86 cmd/internal/objabi cmd/internal/src cmd/internal/sys container/heap crypto/md5 crypto/sha256 encoding/binary encoding/json flag fmt html internal/goversion internal/race io io/ioutil log math math/big math/bits math/rand os path path/filepath reflect regexp runtime runtime/debug runtime/pprof runtime/trace sort strconv strings sync syscall time unicode unicode/utf8 unsafe]
+
+----------------------------
+
+Testing wasm: see testwasm.sh
+
+
+----------------------------
+
+
+----------------------------
+
+Using the execution tracer:
+
+ go test -trace=test.out
+
+ go tool trace test.out
+
+
+
+----------------------------
+
+ Gather heap profile from compiler or linker:
+
+   go tool compile -memprofile=m.p himom.go
+
+ Consume profile:
+
+   go tool pprof -alloc_space `go tool -n compile` m.p
+   Entering interactive mode (type "help" for commands, "o" for options)
+   (pprof) top15
+   ...
+
+
+----------------------------
+
+  Cross-compile from Macbook (x86) to Darwin-Arm64:
+
+   % export MGR=`go env GOROOT`
+   % CGO_ENABLED=1 GOARCH=arm64 GOARM=7 CC=${MGR}/go/misc/ios/clangwrap.sh go build -ldflags=-tmpdir=/tmp/xxx -work fourints.go
+
+
+  Debugging external linking:
+
+   % mkdir /tmp/xxx
+   % go build -ldflags=-tmpdir=/tmp/xxx  something.go
+
+  Will save intermediates in /tmp/xxx
+
+
+
+----------------------------
+
+To get a core dump from a crashing Go process, set:
+
+  GOTRACEBACK=crash
+  
+
+
+----------------------------
+
+  Go compiler options:
+
+  % SSA dumps to ssa.html for function foo
+
+  GOSSAFUNC=foo go tool compile inlinex.go
+
+  % Same as above but dump CFG at phase X
+
+  GOSSAFUNC="foo:number_lines-early_copyelim" go build loop-append.go
+
+  % Dump ssa for function foo at 'trim' phase (emits to *.dump file)
+  
+  go tool compile -d=ssa/trim/dump=Foo inlinex.go
+
+  % Debug register allocation phase
+  
+  go tool compile -p something -d=ssa/regalloc/debug=5 something.go
+
+  % Dump at register allocation phase for function Test3 (to *.dump file)
+  
+  go tool compile -p something '-d=ssa/regalloc/dump=Test3' something.go
+
+  % Compile this file and dump optimization decisions
+  
+  go tool compile -m mumble.go
+
+  % Show help on compiler options:
+
+  go tool compile -h
+  go tool compile -d help
+  go tool compile -d ssa/help
+
+  % Dump SSA after each phase for function main
+
+  go tool compile -p main -d ssa/all/dump=main myprogram.go
+
+  % Slightly better dump via GOSSAFUNC. This produces AST dumps as well.
+
+  GOSSAFUNC="main+" go tool compile -p main  myprogram.go
+
+  
+
+----------------------------
+
+  Rebuild entire Go distrution
+
+     % cd <goroot>/src
+     % bash make.bash
+
+  Rebuild only compiler:
+
+     % cd <goroot>/src/cmd/compile
+     % go install ./...
+     
+  
+
+----------------------------
+
+  Running a specific go test:
+
+    go test -test.v -run TestGdbPython .
+
+  Running tests with verbose output:
+
+    go test -v .
+
+  Running all tests (as opposed to all.bash):
+
+    go test std
+
+  Another recipe for running all tests in long mode (haven't tried this):
+
+    GO_TEST_SHORT=false runalldotbash
+
+  Showing tests that all.bash would run:
+
+    go tool dist test -list
+
+  Running just a section of tests from the list above:
+
+    go tool dist test api
+
+  Running single test from "go tool dist test" with tracing:
+
+    go tool dist test -v -v cgo_test 
+
+  Run a specified test a bunch of times:
+
+    go test golang.org/x/net/route -test.run TestRouteMessage -test.count 100000
+
+
+Run a specific test from $GOROOT/tests/fixedbugs
+
+    $ cd $GOROOT/test
+    $ go run run.go -- ./fixedbugs/issue9083.go
+
+  Adding a directory test:
+
+    1. create fixedbugs/mumble.go with // builddir or //rundir comment
+       and package "ignore"
+    2. create directory mumble.dir, containing a.go, b.go, etc then main.go
+       each will be compiled in turn
+
+    
+
+
+
+----------------------------
+ 
+  git codereview workflow 
+
+   1. Create local branch and make changes:
+
+      git checkout -b newbranch
+      <modify files>
+      git add ...
+      git commit
+
+   2. Mark as change (adds change-id token)
+
+      git codereview change
+
+   3. Put up for review:
+
+      git codereview mail -r approver@google.com,someotherguy@google.com
+      git codereview mail -r cherryyz@google.com,iant@golang.org
+
+
+
+
+----------------------------
+
+  go tool objdump
+
+
+----------------------------
+
+  To break on go panic, use:
+
+     (gdb) b runtime.gopanic
+
+
+----------------------------
+
+  Running the go regression tests:
+
+    % cd $GOROOT/test
+    % go run run.go
+
+  Run just the fixedbugs portion of the regression suite:
+
+    % go run run.go -- ./fixedbugs
+
+
+
+
+----------------------------
+
+  Build with -m to show optimization decisions:
+
+   % go build -gcflags -m -v .
+   ...
+   ./dexread.go:46: inlining call to errors.New
+   ./dexread.go:129: inlining call to Bytes
+   ./dexread.go:150: inlining call to Seek
+   ./dexread.go:150: inlining call to errors.New
+   ./dexread.go:150: inlining call to errors.New
+   ./dexread.go:340: inlining call to Bytes
+   ./dexread.go:250: inlining call to Bytes
+   ./dexread.go:80: inlining call to Bytes
+   ./dexread.go:80: inlining call to bytes.NewReader
+   ./dexread.go:39: leaking param content: fmtstring
+   ./dexread.go:39: leaking param content: a
+   ./dexread.go:43: state.apk escapes to heap
+   ./dexread.go:39: leaking param content: state
+   ./dexread.go:45: apkPre escapes to heap
+
+  Build with -E to show symbol import/export info:
+
+   % go build -gcflags -E -v .
+   ...
+   import ["strings"] func strings.Index
+   import ["strings"] func strings.IndexByte
+   ...
+   export symbol ReadDEXFile
+   export symbol ReadDEX
+   export symbol init
+   export symbol io.Reader.Read
+   export symbol io.Writer.Write
+   export symbol binary.ByteOrder.PutUint16
+   export symbol binary.ByteOrder.PutUint32
+
+
+

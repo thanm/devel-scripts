@@ -1,0 +1,601 @@
+
+Work trees
+----------
+
+  Create a new work tree for this repo, with specified path
+  checked out to specified branch:
+
+    $ git branch
+    * master
+      mumble
+      something
+    $ git worktree add /tmp/myworktree mumble
+    $ git branch
+    * master
+    + mumble
+      something
+    $ 
+
+  List work trees:
+
+    $ git worktree list
+    /ssd2/sandbox2               b5e4516 [master]
+    /ssd2/sandbox-worktrees/wt1  1af543d [mumble]
+    $
+
+  Remove a work tree:
+
+    $ git worktree remove /ssd2/sandbox-worktrees/wt1
+    $ git worktree list
+    /ssd2/sandbox2  b5e4516 [master]
+    $
+
+
+
+
+Creating patches
+----------------
+
+ Create diff for patching from most recent commit:
+
+  git log -p -1 HEAD^ HEAD
+  
+
+
+Tagging for release
+-------------------
+
+  Show tags:
+
+   git tag --list
+
+  Tag a version:
+
+   git tag v1.0.0 HEAD 
+
+
+Stashing
+--------
+
+ Stash current modifications:
+
+  git stash
+
+  ex:
+       % echo blah >> x.c
+       % git stash
+       Saved working directory and index state WIP on mybranch: a277b70 comment2
+
+ Show list of stashed change:
+
+  git stash list
+
+  ex:
+       % git stash list
+       stash@{0}: WIP on mybranch: a277b70 comment2
+
+
+ Clear any stashed changes:
+
+  git stash clear
+
+
+ Apply stashed changes and pop state off stack:
+
+  git stash pop
+
+ Apply changes but do not pop:
+
+  git stash apply
+
+ Show changes in a stack entry:
+
+  git stash show
+
+
+  
+Branching
+---------
+
+ Show local branches:
+
+  git branch
+
+ Show remote branches:
+
+  git branch -r
+
+ Show which branch (local or remote) contains a specific sha:
+
+  $ git branch --contains 5290a1fd47732f6309ccd7cdcb45db12be5ce3c6
+  origin/foo-release
+
+ Create a local tracking branch for a remote branch
+ 
+  git branch --track branch-name origin/branch-name
+
+  Ex:
+
+  git branch --track release-branch.go1.7 origin/release-branch.go1.7
+  git branch --track release-branch.go1.23 origin/release-branch.go1.23
+  git branch --track gcc-7-branch origin/gcc-7-branch
+  git branch --track dev.link origin/dev.link
+  git branch --track master origin/master
+
+
+ Delete a branch that has been merged into something else:
+
+  git branch -d branch_to_delete
+
+ Delete a remote branch (be careful!):
+
+  git push origin --delete myBranchName
+
+ Another way to do the above:
+
+  git branch -d branch_to_delete
+  git push origin :branch_to_delete
+
+ Delete an unmerged branch
+
+  git branch -D branch_to_delete_nuke_that_sucka
+
+ Rename the local branch you are currently on:
+
+  git branch -m new-branch-name
+
+ Rename a local branch (not currently on):
+
+  git branch -m old-branch-name new-branch-name
+
+ Show the current branch checked out:
+
+  git rev-parse --abbrev-ref HEAD
+  git symbolic-ref --short HEAD
+
+
+Resolving problems with stale branches
+--------------------------------------
+
+ For a problem like:
+ 
+ % git pull
+ error: cannot lock ref 'refs/remotes/origin/users/hjl/gold/master': 'refs/remotes/origin/users/hjl/gold' exists; cannot create 'refs/remotes/origin/users/hjl/gold/master'
+ From git://sourceware.org/git/binutils-gdb
+  ! [new branch]            users/hjl/gold/master -> origin/users/hjl/gold/master  (unable to update local ref)
+
+ Try:
+
+  $ git gc --prune=now
+  $ git remote prune origin
+
+
+
+Showing recent branch activity
+------------------------------
+
+  # Shows recent commits in date order
+  gitk --all --date-order
+
+
+Comparing branches
+------------------
+
+ Compare my local branch with master:
+
+  git diff master plugin_section_size_alignment
+
+ Compare single file between two branches:
+
+  git diff master mybranch -- somedir/afile.c
+
+ Show only the files that are different between branches:
+
+  git diff --name-only master somebranch
+
+ Show name and status between branches:
+
+  git diff --name-status master plugin_section_size_alignment
+
+ Graphical diff of single file between branches:
+
+  git difftool -y -t meld master plugin_section_size_alignment -- gold/plugin.cc
+
+
+Comparing files between commits
+-------------------------------
+
+ For a given SHA, shows files modified as part of the commit:
+
+  git diff --name-only dc1c8a16a38dec431c77f49cf50a9b62d6366138 dc1c8a16a38dec431c77f49cf50a9b62d6366138^
+
+ Show name and status:
+
+  git diff --name-status dc1c8a16a38dec431c77f49cf50a9b62d6366138 dc1c8a16a38dec431c77f49cf50a9b62d6366138^
+
+ Show diff for specific file:
+
+  git diff dc1c8a16a38dec431c77f49cf50a9b62d6366138 dc1c8a16a38dec431c77f49cf50a9b62d6366138^ -- gold/sparc.cc
+
+ Graphical diff for specific file:
+
+  git difftool -y -t meld dc1c8a16a38dec431c77f49cf50a9b62d6366138 dc1c8a16a38dec431c77f49cf50a9b62d6366138^ -- gold/sparc.cc
+
+
+Merging branches
+----------------
+
+  Check out local branch, modify, then merge with master branch:
+
+   git checkout -b plugin_section_size_alignment
+   git commit
+   git checkout master
+   git fetch
+   git pull
+   git checkout plugin_section_size_alignment
+   git merge master
+
+
+Pruning old branches
+--------------------
+
+ Show local branches already merged with master:
+
+  git checkout master
+  git branch --merged
+
+ Show local branches not merged with master:
+
+  git checkout master
+  git branch --not-merged
+
+ Remove a local branch already merged with master:
+
+  git branch -d old-merged-feature
+
+ Remove a local branch not yet merged with master (but not needed):
+
+  git branch -D old-unmerged-feature
+
+
+
+Tree manipulation
+-----------------
+
+ Check out a specific revision, updating working tree to match:
+
+  git checkout <sha>
+
+ Where is HEAD?
+
+  git show -s --oneline HEAD
+
+ Check out whatever HEAD revision points to (good way to undo the above):
+
+  git checkout HEAD
+
+ Find sha for master branch at specific date, then check out:
+
+   git rev-list -n 1 --before="2015-12-01 13:37" master
+   git checkout <...>
+
+
+
+
+Logs
+----
+
+Show single-line entries with sha's and comments:
+
+  $ git log --oneline
+  94cc923 [linux-x86] Refresh gcc 4.9 prebuilts for aarch64
+  5790e77 [linux-x86] Refresh gcc 4.9 prebuilts for aarch64
+
+Show log with files modified:
+
+  git log --name-only
+
+
+
+Depth
+-----
+
+Set up a repo with shallow copy of all projects:
+
+  repo init <blah> --depth=1
+
+To restore history:
+
+Within git repo of specific project that we're interested in:
+
+  git fetch --unshallow goog <branch> [ex: mnc-dev]
+
+[note that 'repo sync' will shallow it again unless manifest is edited.]
+
+
+Permissions
+-----------
+
+ Show permissions for files in the current directory:
+
+  $ git ls-tree HEAD
+  040000 tree d5186afb454dfbb1b740849df54b1f316ccce68d	a
+  040000 tree f5aa962f81fb47522c5caee649d33691e9b1bc49	b
+  100644 blob 8f221effc1940a0f61016dce13b1179f71836801	doit.sh
+
+ Modify permissions:
+
+  $ git update-index --chmod=+x doit.sh
+  $ git commit -m "change perm"
+  [master c1f7384] foo
+   1 file changed, 0 insertions(+), 0 deletions(-)
+   mode change 100755 => 100644 doit.sh
+  $ git ls-tree HEAD
+  040000 tree d5186afb454dfbb1b740849df54b1f316ccce68d	a
+  040000 tree f5aa962f81fb47522c5caee649d33691e9b1bc49	b
+  100755 blob 8f221effc1940a0f61016dce13b1179f71836801	doit.sh
+
+
+Updating URL for remote origin
+------------------------------
+
+  Let's say that I'm working with a github repo and I want
+  to change the remote URL to incorporate an access token.
+  Example:
+
+  $ git remote -v
+  origin	https://github.com/llvm/llvm-project.git (fetch)
+  origin	https://github.com/llvm/llvm-project.git (push)
+
+  $ git remote set-url origin https://thanm:<access_token_hash>@github.com/llvm/llvm-project.git
+
+  $ git remote -v
+  origin	https://thanm:<access_token_hash>@github.com/llvm/llvm-project.git (fetch)
+  origin	https://thanm:<access_token_hash>@github.com/llvm/llvm-project.git (push)
+
+
+Working with local remotes
+--------------------------
+
+  Suppose we have two local git repos both cloned from some remote git
+  repo, and we want to transfer some of the commits from one repo to
+  another.
+
+  Let's call the two git repos rA and rB, and let's assume that the
+  work we're interested in is on a local branch BX in rA, and that we
+  want to transfer it over to rB.
+
+  Recipe would be as follows:
+
+  from rB:
+
+  # Incorporate remote branch and fetch it
+  git remote add -t BX rA <path_to_rA>
+  git fetch rA
+
+  # Create local branch to hold same changes. Make sure
+  # This is done from the appropriate spot (e.g. from master)
+  git branch BX
+  git checkout BX
+
+  # Merge remote tracking branch into local branch
+  git merge remotes/rA/BX
+
+  # Voila, we're done
+
+
+
+Rebasing
+--------
+
+   Assuming that you have a private branch tracking master,
+
+     git rebase -i
+
+   will bring up an interactive rebase showing all commits
+   not yet merged into master.
+
+
+Rebasing one branch onto another
+--------------------------------
+
+  Suppose "A" and "B" are branches off master:
+
+     X--Y---Z---W---Q "A"
+             \
+	      \
+	       D---E---F "B"
+
+  and I want to lay "B" over "A" (e.g. make Q the parent commit of D):
+
+  Recipe:
+  - git checkout B
+  - git rebase A
+
+
+
+Cherry-picking commits from an unmerged branch
+----------------------------------------------
+
+  Suppose "A" and "B" are branches off master:
+
+     X--Y---Z---W---Q---
+         \           \
+	  \           \
+	   \           F---G---H "B"
+            \
+	     \
+	      C---D---E "A"
+
+  Let's say that the tip of master is at "W" (e.g. branch B is
+  fully rebased, whereas branch A is not).  I am thinking about
+  submitting "B", but I want to test to see how much trouble
+  it will make for "A".
+
+  If rebasing "A" onto B doesn't work (due to problems with the
+  different base revisions), I can also test by doing:
+
+    $ git checkout B
+    $ git checkout -b throwaway_test_branch
+    $ git cherry-pick C
+    $ git cherry-pick D
+    $ git cherry-pick E
+    
+
+  
+
+Erasing commits
+---------------
+
+  For more detail see:
+
+      http://sethrobertson.github.io/GitFixUm/fixup.html
+
+  # Suppose I accidentally made a commit on master when I was supposed to be
+  # on a local branch, e.g.
+
+      git branch blah
+      <forgot to say "git checkout blah", still on master>
+      <modify foo.h>
+      git add foo.h ; git commit -m "change to foo"
+
+  # Now let's say I want to get rid of that last commit. Locate the
+  SHA = <find sha of parent of bad commit with "git log -1 HEAD^">
+  git reset --hard SHA
+
+
+
+Emacs
+-----
+
+  While visiting a git-controlled source file:
+
+  Enter git blame mode: magit-blame-mode
+
+
+Credential caching
+------------------
+
+  Tell git to cache credentials for 4 hours for this repo:
+
+       git config --local credential.helper 'cache --timeout=14400'
+
+
+
+Breaking a single large change into a "stack" of commits
+--------------------------------------------------------
+
+ First commit in stack:
+
+ % echo > first.txt
+ % git add first.txt
+ % git commit -m "First commit in stack: add first.txt"
+ [mybranch c5b915b] First commit in stack: add first.txt
+  1 file changed, 1 insertion(+)
+  create mode 100644 first.txt
+
+ Second commit in stack:
+ 
+ % echo > second.txt 
+ % git add second.txt
+ % git commit -m "Second commit in stack: add second.txt"
+ [mybranch 3ade85f] Second commit in stack: add second.txt
+  1 file changed, 1 insertion(+)
+  create mode 100644 second.txt
+ %
+
+ Third commit in stack:
+
+ % echo > third.txt
+ % git add third.txt
+ % git commit -m "Third commit in stack: add third.txt"
+ [mybranch 532c4c6] Third commit in stack: add third.txt
+  1 file changed, 1 insertion(+)
+  create mode 100644 third.txt
+
+ Log at this point:
+
+ % git log -3
+
+    commit 532c4c627102392d662b760294653402b88d187e (HEAD -> mybranch)
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:48:26 2018 -0500
+
+	Third commit in stack: add third.txt
+
+    commit 3ade85fa2428ffb31084282f6484296f964dcbb7
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:47:24 2018 -0500
+
+	Second commit in stack: add second.txt
+
+    commit c5b915b52e58044b861201e4b9366ba7a563ad8e
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:46:37 2018 -0500
+
+	First commit in stack: add first.txt
+
+
+ Now let's say we want to modify the second commit in the stack.
+
+ Run "git rebase -i master". This will bring up the following dialog:
+
+   pick c5b915b First commit in stack: add first.txt
+   pick 3ade85f Second commit in stack: add second.txt
+   pick 532c4c6 Third commit in stack: add third.txt
+
+ Position cursor over commit of interest (3ade85f) and type "e". Result:
+
+   pick c5b915b First commit in stack: add first.txt
+   edit 3ade85f Second commit in stack: add second.txt
+   pick 532c4c6 Third commit in stack: add third.txt
+
+ Exit editor at this point. Output will be 
+
+     % git rebase -i master
+     Stopped at 3ade85f...  Second commit in stack: add second.txt
+     You can amend the commit now, with
+
+       git commit --amend 
+
+     Once you are satisfied with your changes, run
+
+       git rebase --continue
+     %
+
+ Now make change, updating second.txt, finish with "git rebase --continue"
+
+  % echo "Some stuff" >> second.txt
+  % git add second.txt
+  % git rebase --continue
+  [detached HEAD 744371a] Second commit in stack: add second.txt with contents.
+   Date: Fri Jan 19 15:47:24 2018 -0500
+   1 file changed, 1 insertion(+)
+   create mode 100644 second.txt
+
+ Now the continue:
+ 
+  % git rebase --continue
+  Successfully rebased and updated refs/heads/mybranch.
+  %
+
+ Note the log:
+
+    % git log -3
+    commit 15e4fe79b7bb415628d29145d5ea1cace0eeacb1 (HEAD -> mybranch)
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:48:26 2018 -0500
+
+	Third commit in stack: add third.txt
+
+    commit 744371ac0cbd27e2bdde968d5e33f68768623e48
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:47:24 2018 -0500
+
+	Second commit in stack: add second.txt with contents.
+
+    commit 9c14696616d2e53c0647a10174c79b4e6601fa59
+    Author: Than McIntosh <thanm@google.com>
+    Date:   Fri Jan 19 15:46:37 2018 -0500
+
+	First commit in stack: add first.txt

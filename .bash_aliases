@@ -1712,18 +1712,9 @@ function emacshash() {
   #echo remote is $REMOTE
 
   WORKROOT=`git rev-parse --show-toplevel`
-
-  #if [ "$REMOTE" = "https://go.googlesource.com/go" ]; then
-  SETGOROOT=true
-  #fi
-
-  if [ $SETGOROOT = "true" ]; then
-    pushd $WORKROOT
-    GOROOT=`pwd` startemacs $FILES
-    popd
-  else
-    startemacs $FILES
-  fi
+  pushd $WORKROOT
+  startemacs $FILES
+  popd
 }
 
 function emacsmod() {
@@ -1920,8 +1911,69 @@ function runalldotbash() {
 
   echo "... complete in $EL seconds, return code: $RC"
   startemacs $FILE
+}
 
+function rungoteststdcmd() {
+  local ARG="$1"
+  local GR=""
+  local HERE=`pwd`
+  local FILE=""
+  local HASH=""
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local MYGDB=`which gdb`
+  local TIMESTAMP=`date +%Y%m%d`
+  local GOEXP="$GOEXPERIMENT"
+  
+  echo "note: gdb is $MYGDB"
 
+  if [ "$WORKB" = "(no" ]; then
+    WORKB=`git branch | fgrep '*' | cut -f5 -d" " | tr -d ')'`
+    WORKB=${WORKB}_in_rebase
+  fi	
+
+  GR=`go env GOROOT`
+  if [ $? != 0 ]; then
+    echo "** go env GOROOT failed"
+    return
+  fi
+
+  # Go root set?
+  if [ -z "$MYGOROOT" ]; then
+    echo "warning, MYGOROOT not set"
+  fi
+
+  # In git?
+  git status -sb 1> /dev/null 2>&1
+  if [ $? != 0 ]; then
+    echo "** not in git repo, can't proceed"
+    return
+  fi
+  HASH=`git rev-parse --short HEAD`
+
+  # Check spot
+  if [ "$HERE" != "${GR}/src" ]; then
+    echo "** not in \${GOROOT}/src, can't run"
+    return
+  fi
+
+  if [ ! -z "$GOEXP" ]; then
+     GOEXP=".GOEXP=${GOEXP}"
+  fi
+
+  # Decide where to put the results
+  FILE=`echo $GR | tr / _`
+  FILE=${SSDTMP}/tmp/goteststdcmd.${FILE}.${WORKB}.${HASH}${GOEXP}.T${TIMESTAMP}.txt
+
+  # Echo, then run
+  echo "go test std cmd &> $FILE"
+  ST=`seconds.py`
+  go test std cmd 1> $FILE 2>&1
+  RC=$?
+  EN=`seconds.py`
+  EL=`expr $EN - $ST`
+
+  echo "... complete in $EL seconds, return code: $RC"
+  startemacs $FILE
 }
 
 function ge_no_aslr() {
@@ -1997,6 +2049,15 @@ function show_prunable_git_mailed_tags() {
   #echo $B
 }
 
+function gbl_impl() {
+  local T=`mktemp`
+  git worktree list 1> $T
+  git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads 1>> $T
+  cat $T
+  rm -f $T
+}
+
+
 function setmousepropsfunction() {
   local SENS=3
   local ACCEL=0.5
@@ -2053,6 +2114,21 @@ EOF
   # 3. Save the file and run fc-cache -r
 }
 
+function mygitbranch() {
+  local TF=$(mktemp)
+  local WORKB=`git branch | fgrep '*' | cut -f2 -d" "`
+  local RC
+  git worktree list > $TF
+  git branch | column    
+  echo "$WORKB" | fgrep detached > /dev/null
+  RC=$?
+  if [ $RC == 0 ]; then
+    cat $TF
+  else
+    cat $TF | sed "1,\$s/$WORKB/\*$WORKB/g"
+  fi
+}
+    
 #......................................................................
 
 alias hh='history 25'
@@ -2132,8 +2208,9 @@ alias gitlogfile=mygitlogfile
 alias gitlogwithfile='git log --name-only'
 alias grbw="echo git codereview rebase-work; git codereview rebase-work"
 alias grbcont="echo git rebase --continue; git rebase --continue"
-alias gb="git worktree list; git branch | column"
-alias gbl="git worktree list; git for-each-ref --sort='-authordate:iso8601' --format=' %(authordate:relative)%09%(refname:short)' refs/heads"
+alias gbold="git worktree list; git branch | column"
+alias gb=mygitbranch
+alias gbl=gbl_impl
 alias gca="echo git commit --amend ; git commit --amend"
 alias gcaX="echo git commit --amend --reset-author; git commit --amend --reset-author"
 alias gcar="echo git commit --amend --reuse-message=HEAD ; git commit --amend --reuse-message=HEAD"
@@ -2142,6 +2219,7 @@ alias glo="git log --oneline"
 alias glob="run_git_log_oneline_branch"
 alias glf='git log --name-only'
 alias gld='git log -p'
+alias glnodep='git log --name-only --grep=dependabot --invert-grep'
 alias gitshowhead="git show -s --oneline HEAD"
 alias gitmeld='git difftool -d -t ${GRDIFF} -y'
 alias gitmeldr='git difftool -t ${GRDIFF} -y'
