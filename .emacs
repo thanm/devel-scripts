@@ -162,16 +162,16 @@
 ;; global/gtags setup
 ;; sudo apt-get install global
 ;;
-(cond
- ((string-equal system-type "gnu/linux")
-  (progn
-    (add-to-list 'load-path "/usr/share/emacs/site-lisp/global")
-    (require 'gtags)
-    (defun nm-gtags-hook () (gtags-mode 1))
-    (add-hook 'c-mode-common-hook 'nm-gtags-hook)
-    (global-set-key "\M-." 'gtags-find-tag)
-    (global-set-key "\M-," 'gtags-find-rtag)
-    (global-set-key "\M-/" 'gtags-find-pattern))))
+;; (cond
+;;  ((string-equal system-type "gnu/linux")
+;;   (progn
+;;     (add-to-list 'load-path "/usr/share/emacs/site-lisp/global")
+;;     (require 'gtags)
+;;     (defun nm-gtags-hook () (gtags-mode 1))
+;;     (add-hook 'c-mode-common-hook 'nm-gtags-hook)
+;;     (global-set-key "\M-." 'gtags-find-tag)
+;;     (global-set-key "\M-," 'gtags-find-rtag)
+;;     (global-set-key "\M-/" 'gtags-find-pattern))))
 ;;
 ;; Java setup
 ;;
@@ -200,12 +200,11 @@
 ;;
 ;; Go setup
 ;;
-;;(setq gofmt-command "goimports")
-(require 'go-mode-autoloads)
+;;(require 'go-mode-autoloads)
 (add-hook 'before-save-hook 'gofmt-before-save)
+(setq gofmt-command "goimports")
 (add-hook 'go-mode-hook (lambda ()
                           (setq-default)
-                          (load "go-guru")
                           (setq tab-width 4
                                 standard-indent 2
                                 indent-tabs-mode 1)))
@@ -278,10 +277,10 @@
 ;; See https://github.com/jwiegley/use-package
 ;; and https://github.com/golang/tools/blob/master/gopls/doc/emacs.md
 ;;
-(use-package lsp-mode
-  :ensure t
-  :commands (lsp lsp-deferred)
-  :hook (go-mode . lsp-deferred))
+;;(use-package lsp-mode
+;;  :ensure t
+;;  :commands (lsp lsp-deferred)
+;;  :hook (go-mode . lsp-deferred))
 
 ;; Set up before-save hooks to format buffer and add/delete imports.
 ;; Make sure you don't have other gofmt/goimports hooks enabled.
@@ -292,14 +291,31 @@
 (add-hook 'go-mode-hook #'lsp-go-install-save-hooks)
 
 ;; Optional - provides fancier overlays.
-(use-package lsp-ui
-  :ensure t
-  :commands lsp-ui-mode)
+;;(use-package lsp-ui
+;;  :ensure t
+;;  :commands lsp-ui-mode)
 
 ;; Company mode is a standard completion package that works well with lsp-mode.
-(use-package company
-  :ensure t
-  :config
-  ;; Optionally enable completion-as-you-type behavior.
-  (setq company-idle-delay 0)
-  (setq company-minimum-prefix-length 1))
+;; (use-package company
+;;   :ensure t
+;;   :config
+;;   ;; Optionally enable completion-as-you-type behavior.
+;;   (setq company-idle-delay 0)
+;;   (setq company-minimum-prefix-length 1))
+
+(require 'company)
+;;(require 'yasnippet)
+
+(require 'go-mode)
+(require 'eglot)
+(add-hook 'go-mode-hook 'eglot-ensure)
+
+;; Disable flymake
+(add-hook 'eglot--managed-mode-hook (lambda () (flymake-mode -1)))
+
+;; Optional: install eglot-format-buffer as a save hook.
+;; The depth of -10 places this before eglot's willSave notification,
+;; so that that notification reports the actual contents that will be saved.
+(defun eglot-format-buffer-before-save ()
+  (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
+(add-hook 'go-mode-hook #'eglot-format-buffer-before-save)
